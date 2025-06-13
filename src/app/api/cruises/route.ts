@@ -34,7 +34,17 @@ export async function GET() {
     const data = await response.json();
     console.log('Successfully fetched cruises data');
     
-    return NextResponse.json(data);
+    // Transform the response to match the expected format
+    if (data.data && Array.isArray(data.data)) {
+      return NextResponse.json({
+        caches: [{ data: data.data }]
+      });
+    } else {
+      // Fallback for unexpected response format
+      return NextResponse.json({
+        caches: [{ data: [] }]
+      });
+    }
     
   } catch (error) {
     console.error('Cruise API error:', error);
