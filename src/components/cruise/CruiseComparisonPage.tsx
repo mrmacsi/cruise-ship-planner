@@ -173,16 +173,22 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
 
     if (selectedCity) {
       result = result.filter(c => {
+        const searchTerm = selectedCity.toLowerCase();
+        
         // Check departure port
-        if (c['Departure Port'] && c['Departure Port'].toLowerCase().includes(selectedCity.toLowerCase())) {
+        if (c['Departure Port'] && c['Departure Port'].toLowerCase().includes(searchTerm)) {
           return true;
         }
-        // Check itinerary
+        
+        // Check all ports in complete itinerary
         if (Array.isArray(c['Complete Itinerary'])) {
           return c['Complete Itinerary'].some(stop => 
-            stop?.port?.toLowerCase().includes(selectedCity.toLowerCase())
+            stop?.port?.toLowerCase().includes(searchTerm)
           );
         }
+        
+
+        
         return false;
       });
     }
@@ -190,25 +196,47 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     if (debouncedItineraryQuery) {
       const query = sanitizeInput(debouncedItineraryQuery).toLowerCase();
       if (query) {
-        result = result.filter(c => 
-          c['Departure Port']?.toLowerCase().includes(query)
-        );
+        result = result.filter(c => {
+          // Search in departure port
+          if (c['Departure Port']?.toLowerCase().includes(query)) {
+            return true;
+          }
+          
+          // Search in all ports in complete itinerary
+          if (Array.isArray(c['Complete Itinerary'])) {
+            return c['Complete Itinerary'].some(stop => 
+              stop?.port?.toLowerCase().includes(query)
+            );
+          }
+          
+
+          
+          return false;
+        });
       }
     }
 
     if (roomTypeFilter) {
       result = result.filter(c => {
         const roomType = roomTypeFilter.toLowerCase();
+        
+        const hasValidPrice = (price: string | undefined) => {
+          return price && 
+                 price.trim() !== '' && 
+                 !price.toLowerCase().includes('n/a') && 
+                 !price.toLowerCase().includes('not available') &&
+                 parsePrice(price) > 0;
+        };
+        
         switch (roomType) {
           case 'interior':
-            return c['Interior Price'] && !c['Interior Price'].toLowerCase().includes('n/a');
+            return hasValidPrice(c['Interior Price']);
           case 'ocean view':
-            return c['Ocean View Price'] && !c['Ocean View Price'].toLowerCase().includes('n/a');
+            return hasValidPrice(c['Ocean View Price']);
           case 'balcony':
-            return c['Standard Balcony'] && !c['Standard Balcony'].toLowerCase().includes('n/a');
+            return hasValidPrice(c['Standard Balcony']);
           case 'suite':
-            return (c['Suite Price'] && !c['Suite Price'].toLowerCase().includes('n/a')) ||
-                   (c['Yacht Club Price'] && !c['Yacht Club Price'].toLowerCase().includes('n/a'));
+            return hasValidPrice(c['Suite Price']) || hasValidPrice(c['Yacht Club Price']);
           default:
             return true;
         }
@@ -216,7 +244,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     }
 
     return result;
-  }, [processedCruises, selectedShip, debouncedMaxBudget, departureDate, debouncedItineraryQuery]);
+  }, [processedCruises, selectedShip, debouncedMaxBudget, departureDate, arrivalDate, selectedCity, debouncedItineraryQuery, roomTypeFilter]);
 
   const shipNames = useMemo(() => {
     const names = Array.from(new Set(processedCruises.map(c => c['Ship Name']).filter(Boolean)));
