@@ -85,8 +85,8 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
               : cruise['User Notes'] || ''
           }));
           
-          // Silent save - no loading states or UI changes
-          await apiCall(API_BASE_URL, {
+          // Silent save - use direct fetch to avoid triggering global loading state
+          await fetch(API_BASE_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -107,7 +107,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
       
       saveNotes();
     }
-  }, [debouncedNotes, apiCall]);
+  }, [debouncedNotes]);
 
   const processedCruises = useMemo((): ProcessedCruise[] => {
     if (!Array.isArray(allCruises)) return [];
@@ -546,21 +546,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             </div>
 
           </div>
-          <div className="mt-4 flex justify-end space-x-4">
-            <button 
-              onClick={() => {
-                if (window.confirm('This will clear all cached data and reload fresh data from the server. Continue?')) {
-                  // Clear localStorage cache if any
-                  localStorage.clear();
-                  // Reload the page to get fresh data
-                  window.location.reload();
-                }
-              }} 
-              className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition duration-300 font-semibold shadow-md"
-              aria-label="Reset cache and reload data"
-            >
-              Reset Cache
-            </button>
+          <div className="mt-4 flex justify-end">
             <button 
               onClick={handleResetFilters} 
               className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"

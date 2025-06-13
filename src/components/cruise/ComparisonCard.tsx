@@ -57,17 +57,20 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
   );
 
   return (
-    <article className="bg-white rounded-xl shadow-lg p-4 relative ring-2 ring-blue-500 flex flex-col">
-      <button 
-        onClick={onRemove} 
-        className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition p-1 rounded-full hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 z-10"
-        aria-label={`Remove ${cruise['Ship Name']} from comparison`}
-      >
-        <CloseIcon />
-      </button>
+    <article className="bg-white rounded-xl shadow-lg p-4 ring-2 ring-blue-500 flex flex-col">
+      {/* Close button above image */}
+      <div className="flex justify-end mb-2">
+        <button 
+          onClick={onRemove} 
+          className="text-gray-400 hover:text-red-500 transition p-1 rounded-full hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+          aria-label={`Remove ${cruise['Ship Name']} from comparison`}
+        >
+          <CloseIcon />
+        </button>
+      </div>
 
       {/* Route Image */}
-      <div className="mb-3 pr-8">
+      <div className="mb-3">
         {imageError || !cruise['Itinerary Map'] ? (
           <PlaceholderImage />
         ) : (

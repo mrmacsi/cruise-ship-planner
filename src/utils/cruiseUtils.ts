@@ -11,28 +11,38 @@ export const parseDepartureDate = (dateRangeStr: string | undefined | null): Dat
   if (!dateRangeStr || typeof dateRangeStr !== 'string') return null;
   
   try {
-    const startDateStr = dateRangeStr.split(' - ')[0];
+    const startDateStr = dateRangeStr.split(' - ')[0].trim();
     if (!startDateStr) return null;
     
-    // Handle various date formats
+    // Handle format like "29 Aug '25"
+    const parts = startDateStr.split(' ');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1];
+      let year = parts[2];
+      
+      // Convert '25 to 2025
+      if (year.startsWith("'")) {
+        year = '20' + year.substring(1);
+      }
+      
+      // Create date string in format "DD MMM YYYY"
+      const parsableDateStr = `${day} ${month} ${year}`;
+      
+      const date = new Date(parsableDateStr);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    
+    // Fallback: try original parsing
     let parsableDateStr = startDateStr.replace(/'/g, '20');
     const date = new Date(parsableDateStr);
     
-    if (isNaN(date.getTime())) {
-      // Try alternative parsing
-      const parts = startDateStr.split(' ');
-      if (parts.length >= 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1];
-        const year = parts[2].replace(/'/g, '20');
-        parsableDateStr = `${day} ${month} ${year}`;
-        const altDate = new Date(parsableDateStr);
-        return isNaN(altDate.getTime()) ? null : altDate;
-      }
-      return null;
+    if (!isNaN(date.getTime())) {
+      return date;
     }
-    
-    return date;
+    return null;
   } catch (error) {
     console.warn('Date parsing error:', error);
     return null;

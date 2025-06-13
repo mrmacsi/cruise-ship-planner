@@ -36,6 +36,29 @@ export default function CruiseShipPlanner() {
                   Bulk Import
                 </button>
                 <button 
+                  onClick={async () => {
+                    if (window.confirm('This will clear all cached cruise data from Redis. Continue?')) {
+                      try {
+                        const response = await fetch('https://uno-game-eta.vercel.app/api/redis-cache?key=cruise_data', {
+                          method: 'DELETE'
+                        });
+                        if (response.ok) {
+                          alert('Cache cleared successfully!');
+                          window.location.reload();
+                        } else {
+                          alert('Failed to clear cache');
+                        }
+                      } catch (error) {
+                        console.error('Cache clear error:', error);
+                        alert('Error clearing cache');
+                      }
+                    }
+                  }} 
+                  className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition font-semibold shadow-md"
+                >
+                  Reset Cache
+                </button>
+                <button 
                   onClick={() => { setEditingCruise(null); setShowForm(true); }} 
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-semibold shadow-md flex items-center"
                 >
