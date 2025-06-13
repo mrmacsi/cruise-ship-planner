@@ -7,13 +7,18 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { parsePrice, parseDepartureDate, parseArrivalDate, getAvailableDates, getAvailableCities, sanitizeInput } from '@/utils/cruiseUtils';
 import { API_BASE_URL, API_KEY, MIN_BUDGET_VALUE, MAX_BUDGET_VALUE } from '@/utils/constants';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { PlusIcon } from '@/components/ui/Icons';
 import { CruiseCard } from '@/components/cruise/CruiseCard';
 import { ComparisonCard } from '@/components/cruise/ComparisonCard';
-import { CruiseForm } from '@/components/admin/CruiseForm';
-import { BulkImportForm } from '@/components/admin/BulkImportForm';
 
-export const CruiseComparisonPage: React.FC = () => {
+interface CruiseComparisonPageProps {
+  allNotesOpen?: boolean;
+  onEditCruise?: (cruise: CruiseData) => void;
+}
+
+export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({ 
+  allNotesOpen = true,
+  onEditCruise 
+}) => {
   const [allCruises, setAllCruises] = useState<CruiseData[]>([]);
   const [comparisonList, setComparisonList] = useState<string[]>([]);
   const [selectedShip, setSelectedShip] = useState('');
@@ -23,11 +28,7 @@ export const CruiseComparisonPage: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [itineraryQuery, setItineraryQuery] = useState('');
   const [roomTypeFilter, setRoomTypeFilter] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [showBulkImport, setShowBulkImport] = useState(false);
-  const [editingCruise, setEditingCruise] = useState<CruiseData | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [isBackgroundSaving, setIsBackgroundSaving] = useState(false);
 
   const { apiCall, isLoading, error } = useApi();
   
@@ -55,18 +56,18 @@ export const CruiseComparisonPage: React.FC = () => {
     fetchCruises();
   }, [fetchCruises]);
 
-  // Background save for notes without disrupting the UI
+  // Silent background save for notes without any UI disruption
   useEffect(() => {
     if (Object.keys(debouncedNotes).length > 0) {
       const saveNotes = async () => {
-        setIsBackgroundSaving(true);
         try {
           const updatedCruises = allCruises.map(cruise => ({
             ...cruise,
             'User Notes': debouncedNotes[cruise['Unique Sailing ID']] || cruise['User Notes'] || ''
           }));
           
-          const result = await apiCall(API_BASE_URL, {
+          // Silent save - no loading states or UI changes
+          await apiCall(API_BASE_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -76,13 +77,10 @@ export const CruiseComparisonPage: React.FC = () => {
             }),
           });
 
-          if (result.status !== 'aborted') {
-            setAllCruises(updatedCruises);
-          }
+          // Update local state silently
+          setAllCruises(updatedCruises);
         } catch (error) {
           console.error('Failed to save notes:', error);
-        } finally {
-          setIsBackgroundSaving(false);
         }
       };
       
@@ -145,7 +143,7 @@ export const CruiseComparisonPage: React.FC = () => {
       if (!isNaN(filterDate.getTime())) {
         filterDate.setUTCHours(23, 59, 59, 999);
         result = result.filter(c => {
-          const arrivalDateObj = parseArrivalDate(c['Departure Date']);
+          const arrivalDateObj = parseArrivalDate(c['Departure Date'], c['Duration']);
           if (!arrivalDateObj) return false;
           const cruiseArrivalDate = new Date(arrivalDateObj);
           cruiseArrivalDate.setUTCHours(23, 59, 59, 999);
@@ -174,12 +172,28 @@ export const CruiseComparisonPage: React.FC = () => {
       const query = sanitizeInput(debouncedItineraryQuery).toLowerCase();
       if (query) {
         result = result.filter(c => 
-          Array.isArray(c['Complete Itinerary']) && 
-          c['Complete Itinerary'].some(stop => 
-            stop?.port?.toLowerCase().includes(query)
-          )
+          c['Departure Port']?.toLowerCase().includes(query)
         );
       }
+    }
+
+    if (roomTypeFilter) {
+      result = result.filter(c => {
+        const roomType = roomTypeFilter.toLowerCase();
+        switch (roomType) {
+          case 'interior':
+            return c['Interior Price'] && !c['Interior Price'].toLowerCase().includes('n/a');
+          case 'ocean view':
+            return c['Ocean View Price'] && !c['Ocean View Price'].toLowerCase().includes('n/a');
+          case 'balcony':
+            return c['Standard Balcony'] && !c['Standard Balcony'].toLowerCase().includes('n/a');
+          case 'suite':
+            return (c['Suite Price'] && !c['Suite Price'].toLowerCase().includes('n/a')) ||
+                   (c['Yacht Club Price'] && !c['Yacht Club Price'].toLowerCase().includes('n/a'));
+          default:
+            return true;
+        }
+      });
     }
 
     return result;
@@ -266,94 +280,36 @@ export const CruiseComparisonPage: React.FC = () => {
     }));
   }, []);
 
-  const handleSaveCruises = useCallback(async (updatedCruises: CruiseData[]) => {
-    try {
-      updatedCruises.forEach((cruise, index) => {
-        if (!cruise['Ship Name'] || !cruise['Ship Name'].toString().trim()) {
-          throw new Error(`Ship Name is required`);
-        }
-        
-        // Add default values for missing fields
-        cruise['Departure Port'] = cruise['Departure Port'] || 'TBD';
-        cruise['Departure Date'] = cruise['Departure Date'] || 'TBD';
-        cruise['Duration'] = cruise['Duration'] || '7 Nights';
-        cruise['Interior Price'] = cruise['Interior Price'] || 'N/A';
-        cruise['Ocean View Price'] = cruise['Ocean View Price'] || 'N/A';
-        cruise['Standard Balcony'] = cruise['Standard Balcony'] || 'N/A';
-        cruise['Suite Price'] = cruise['Suite Price'] || 'N/A';
-        cruise['Yacht Club Price'] = cruise['Yacht Club Price'] || 'N/A';
-        cruise['Special Offers'] = cruise['Special Offers'] || 'None';
-        cruise['Itinerary Map'] = cruise['Itinerary Map'] || '';
-        cruise['Booking Link (Constructed)'] = cruise['Booking Link (Constructed)'] || '';
-        
-        if (!Array.isArray(cruise['Complete Itinerary'])) {
-          cruise['Complete Itinerary'] = [];
-        }
-        
-        if (!cruise['Unique Sailing ID']) {
-          cruise['Unique Sailing ID'] = `cruise_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`;
-        }
-      });
-
-      const method = allCruises.length > 0 ? 'PUT' : 'POST';
-      
-      const result = await apiCall(API_BASE_URL, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          key: API_KEY, 
-          data: updatedCruises, 
-          ttl: null 
-        }),
-      });
-
-      if (result.status !== 'aborted') {
-        setAllCruises(updatedCruises);
-        setShowForm(false);
-        setEditingCruise(null);
-        setShowBulkImport(false);
-      }
-    } catch (error) {
-      console.error('Save failed:', error);
-      throw error;
-    }
-  }, [apiCall, allCruises.length]);
-
-  const handleAdd = useCallback(async (newCruise: CruiseData) => {
-    const cruiseWithId = { 
-      ...newCruise, 
-      "Unique Sailing ID": `cruise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` 
-    };
-    const updatedCruises = [...allCruises, cruiseWithId];
-    await handleSaveCruises(updatedCruises);
-  }, [allCruises, handleSaveCruises]);
-
-  const handleEdit = useCallback(async (updatedCruise: CruiseData) => {
-    const updatedCruises = allCruises.map(c => 
-      c['Unique Sailing ID'] === updatedCruise['Unique Sailing ID'] ? updatedCruise : c
-    );
-    await handleSaveCruises(updatedCruises);
-  }, [allCruises, handleSaveCruises]);
-
-  const handleDelete = useCallback((sailingId: string) => {
+  const handleDelete = useCallback(async (sailingId: string) => {
     const cruiseToDelete = allCruises.find(c => c['Unique Sailing ID'] === sailingId);
     const confirmMessage = `Are you sure you want to delete "${cruiseToDelete?.['Ship Name'] || 'this cruise'}"? This action cannot be undone.`;
     
     if (window.confirm(confirmMessage)) {
-      const updatedCruises = allCruises.filter(c => c['Unique Sailing ID'] !== sailingId);
-      handleSaveCruises(updatedCruises);
-    }
-  }, [allCruises, handleSaveCruises]);
+      try {
+        const updatedCruises = allCruises.filter(c => c['Unique Sailing ID'] !== sailingId);
+        
+        await apiCall(API_BASE_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            key: API_KEY, 
+            data: updatedCruises, 
+            ttl: null 
+          }),
+        });
 
-  const handleCloseForm = useCallback(() => {
-    setShowForm(false);
-    setEditingCruise(null);
-  }, []);
+        setAllCruises(updatedCruises);
+      } catch (error) {
+        console.error('Delete failed:', error);
+      }
+    }
+  }, [allCruises, apiCall]);
 
   const handleOpenEditForm = useCallback((cruise: CruiseData) => {
-    setEditingCruise(cruise);
-    setShowForm(true);
-  }, []);
+    if (onEditCruise) {
+      onEditCruise(cruise);
+    }
+  }, [onEditCruise]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -365,36 +321,12 @@ export const CruiseComparisonPage: React.FC = () => {
           <p className="text-lg text-gray-600">
             Find and compare your perfect MSC cruise vacation.
           </p>
-          {isBackgroundSaving && (
-            <div className="mt-2 text-sm text-green-600 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-              Saving notes...
-            </div>
-          )}
         </header>
 
         <section className="bg-white p-6 rounded-2xl shadow-lg mb-8" aria-labelledby="filter-heading">
-          <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-            <h2 id="filter-heading" className="text-2xl font-semibold text-blue-800">
-              Filter Options
-            </h2>
-            <div className="flex space-x-2">
-              <button 
-                onClick={() => setShowBulkImport(true)} 
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition font-semibold shadow-md"
-                disabled={isLoading}
-              >
-                Bulk Import
-              </button>
-              <button 
-                onClick={() => { setEditingCruise(null); setShowForm(true); }} 
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-semibold shadow-md flex items-center"
-                disabled={isLoading}
-              >
-                <PlusIcon /> Add New
-              </button>
-            </div>
-          </div>
+          <h2 id="filter-heading" className="text-2xl font-semibold mb-4 text-blue-800">
+            Filter Options
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <div className="flex flex-col">
               <label htmlFor="ship-select" className="mb-1 font-medium text-gray-700">
@@ -493,20 +425,23 @@ export const CruiseComparisonPage: React.FC = () => {
             </div>
 
             <div className="flex flex-col">
-              <label htmlFor="itinerary-input" className="mb-1 font-medium text-gray-700">
-                Destination
+              <label htmlFor="departure-city-select" className="mb-1 font-medium text-gray-700">
+                Departure City
               </label>
-              <input 
-                id="itinerary-input" 
-                type="text" 
+              <select 
+                id="departure-city-select" 
                 value={itineraryQuery} 
-                onChange={(e) => setItineraryQuery(sanitizeInput(e.target.value))} 
-                placeholder="e.g., Rome" 
+                onChange={(e) => setItineraryQuery(e.target.value)} 
                 className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                aria-describedby="itinerary-input-desc"
-              />
-              <span id="itinerary-input-desc" className="sr-only">
-                Search for cruises visiting specific destinations
+                aria-describedby="departure-city-select-desc"
+              >
+                <option value="">All Departure Cities</option>
+                {Array.from(new Set(processedCruises.map(c => c['Departure Port']).filter(Boolean))).sort().map(port => (
+                  <option key={port} value={port}>{port}</option>
+                ))}
+              </select>
+              <span id="departure-city-select-desc" className="sr-only">
+                Select a specific departure city
               </span>
             </div>
 
@@ -596,6 +531,7 @@ export const CruiseComparisonPage: React.FC = () => {
                   onDelete={handleDelete}
                   onNotesChange={handleNotesChange}
                   showAdminButtons={true}
+                  allNotesOpen={allNotesOpen}
                 />
               ))}
             </div>
@@ -608,23 +544,6 @@ export const CruiseComparisonPage: React.FC = () => {
           )}
         </section>
       </div>
-
-      {showForm && (
-        <CruiseForm 
-          cruise={editingCruise} 
-          onSave={editingCruise ? handleEdit : handleAdd}
-          onClose={handleCloseForm}
-          isLoading={isLoading}
-        />
-      )}
-      
-      {showBulkImport && (
-        <BulkImportForm
-          onSave={handleSaveCruises}
-          onClose={() => setShowBulkImport(false)}
-          isLoading={isLoading}
-        />
-      )}
     </div>
   );
 }; 

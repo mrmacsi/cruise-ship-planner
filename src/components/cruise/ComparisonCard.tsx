@@ -35,7 +35,7 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
       case 'balcony':
         return formatPrice(cruise['Standard Balcony']);
       case 'suite':
-        return formatPrice(cruise['Suite Options']);
+        return formatPrice(cruise['Suite Price']);
       default:
         return null;
     }
@@ -66,21 +66,26 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
         <CloseIcon />
       </button>
 
-      {/* Image */}
+      {/* Route Image */}
       <div className="mb-3 pr-8">
-        {imageError ? (
+        {imageError || !cruise['Itinerary Map'] ? (
           <PlaceholderImage />
         ) : (
-          <Image 
-            src={cruise['Itinerary Map'] || 'https://placehold.co/400x200/e2e8f0/4a5568?text=Map+Not+Available'} 
-            alt={`Itinerary map for ${cruise['Ship Name']}`}
-            className="w-full h-32 object-cover rounded-lg"
-            onError={handleImageError}
-            width={400}
-            height={200}
-            priority={false}
-            unoptimized={false}
-          />
+          <div className="relative">
+            <Image 
+              src={cruise['Itinerary Map']} 
+              alt={`Route map for ${cruise['Ship Name']}`}
+              className="w-full h-32 object-contain rounded-lg border border-gray-200"
+              onError={handleImageError}
+              width={400}
+              height={200}
+              priority={false}
+              unoptimized={true}
+            />
+            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+              Route Map
+            </div>
+          </div>
         )}
       </div>
 
@@ -127,7 +132,11 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
           </div>
           <div className="flex justify-between">
             <dt className="font-medium">Suite:</dt>
-            <dd className="font-semibold">{formatPrice(cruise['Suite Options'])}</dd>
+            <dd className="font-semibold">{formatPrice(cruise['Suite Price'])}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="font-medium">Yacht Club:</dt>
+            <dd className="font-semibold">{formatPrice(cruise['Yacht Club Price'])}</dd>
           </div>
           {cruise['Special Offers'] && cruise['Special Offers'] !== 'None' && (
             <div className="flex justify-between">
@@ -149,13 +158,18 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
         </button>
 
         {showItinerary && (
-          <div className="text-xs text-gray-600 space-y-1 mb-3 max-h-24 overflow-y-auto">
+          <div className="text-xs text-gray-600 space-y-1 mb-3">
             {itinerary.length > 0 ? (
               itinerary.map((stop: ItineraryStop, index: number) => (
-                <p key={index}>
-                  <strong>Day {stop.day}:</strong> {stop.port}
-                  {stop.arrival && stop.arrival !== '-' && ` (${stop.arrival})`}
-                </p>
+                <div key={index} className="border-l-2 border-blue-200 pl-2 py-1">
+                  <p className="font-medium text-gray-800">Day {stop.day}: {stop.port}</p>
+                  {stop.arrival && stop.arrival !== '-' && (
+                    <p className="text-gray-500">Arrives: {stop.arrival}</p>
+                  )}
+                  {stop.departure && stop.departure !== '-' && (
+                    <p className="text-gray-500">Departs: {stop.departure}</p>
+                  )}
+                </div>
               ))
             ) : (
               <p className="text-gray-400 italic">No itinerary details available</p>

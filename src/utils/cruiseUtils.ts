@@ -44,35 +44,25 @@ export const sanitizeInput = (input: unknown): string => {
   return input.trim().replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 };
 
-export const parseArrivalDate = (dateRangeStr: string | undefined | null): Date | null => {
-  if (!dateRangeStr || typeof dateRangeStr !== 'string') return null;
+export const parseArrivalDate = (departureDate: string | undefined | null, duration: string | undefined | null): Date | null => {
+  if (!departureDate || !duration) return null;
   
   try {
-    const dateParts = dateRangeStr.split(' - ');
-    if (dateParts.length < 2) return null;
+    const depDate = parseDepartureDate(departureDate);
+    if (!depDate) return null;
     
-    const endDateStr = dateParts[1];
-    if (!endDateStr) return null;
+    // Extract number of nights from duration string (e.g., "7 Nights" -> 7)
+    const nightsMatch = duration.match(/(\d+)/);
+    if (!nightsMatch) return null;
     
-    // Handle various date formats
-    let parsableDateStr = endDateStr.replace(/'/g, '20');
-    const date = new Date(parsableDateStr);
+    const nights = parseInt(nightsMatch[1], 10);
+    if (isNaN(nights)) return null;
     
-    if (isNaN(date.getTime())) {
-      // Try alternative parsing
-      const parts = endDateStr.split(' ');
-      if (parts.length >= 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1];
-        const year = parts[2].replace(/'/g, '20');
-        parsableDateStr = `${day} ${month} ${year}`;
-        const altDate = new Date(parsableDateStr);
-        return isNaN(altDate.getTime()) ? null : altDate;
-      }
-      return null;
-    }
+    // Calculate arrival date by adding nights to departure date
+    const arrivalDate = new Date(depDate);
+    arrivalDate.setDate(arrivalDate.getDate() + nights);
     
-    return date;
+    return arrivalDate;
   } catch (error) {
     console.warn('Arrival date parsing error:', error);
     return null;
@@ -84,7 +74,7 @@ export const getAvailableDates = (cruises: any[]): Date[] => {
   
   cruises.forEach(cruise => {
     const departureDate = parseDepartureDate(cruise['Departure Date']);
-    const arrivalDate = parseArrivalDate(cruise['Departure Date']);
+    const arrivalDate = parseArrivalDate(cruise['Departure Date'], cruise['Duration']);
     
     if (departureDate && arrivalDate) {
       // Add all dates between departure and arrival

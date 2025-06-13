@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { ProcessedCruise, ItineraryStop } from '@/types/cruise';
 import { CalendarIcon, MapPinIcon, PoundIcon, EditIcon, TrashIcon } from '@/components/ui/Icons';
@@ -14,6 +14,7 @@ interface CruiseCardProps {
   onDelete?: (sailingId: string) => void;
   onNotesChange?: (sailingId: string, notes: string) => void;
   showAdminButtons?: boolean;
+  allNotesOpen?: boolean;
 }
 
 export const CruiseCard: React.FC<CruiseCardProps> = ({ 
@@ -24,13 +25,19 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
   onEdit,
   onDelete,
   onNotesChange,
-  showAdminButtons = false
+  showAdminButtons = false,
+  allNotesOpen = true
 }) => {
   const [showItinerary, setShowItinerary] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
+  const [showNotes, setShowNotes] = useState(allNotesOpen);
   const [notes, setNotes] = useState(cruise['User Notes'] || '');
   const [imageError, setImageError] = useState(false);
   const [useNextImage, setUseNextImage] = useState(true);
+
+  // Update showNotes when allNotesOpen changes
+  useEffect(() => {
+    setShowNotes(allNotesOpen);
+  }, [allNotesOpen]);
 
   const priceToDisplay = useMemo(() => {
     return cruise.lowestPrice === Infinity ? 'N/A' : `from £${cruise.lowestPrice.toLocaleString()}`;
