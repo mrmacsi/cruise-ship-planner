@@ -20,10 +20,14 @@ export const CruiseAdminPage: React.FC = () => {
 
   const fetchCruisesFromAPI = useCallback(async () => {
     try {
-      const result = await apiCall(`${API_BASE_URL}?key=${API_KEY}`);
+      const result = await apiCall(API_BASE_URL);
       if (result.status === 404) {
         setCruises([]);
         setIsKeyInCache(false);
+      } else if (result.status === 408) {
+        // Handle timeout - show empty state but indicate it's a temporary issue
+        setCruises([]);
+        setIsKeyInCache(true); // Keep true so save operations still work
       } else if (result.data?.caches?.[0]?.data) {
         setCruises(result.data.caches[0].data);
         setIsKeyInCache(true);
@@ -88,7 +92,6 @@ export const CruiseAdminPage: React.FC = () => {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          key: API_KEY, 
           data: updatedCruises, 
           ttl: null 
         }),

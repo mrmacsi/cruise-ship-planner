@@ -25,12 +25,17 @@ export const useApi = () => {
       const response = await fetch(url, {
         ...options,
         signal: abortControllerRef.current.signal,
-        mode: 'cors',
       });
 
       if (!response.ok) {
         if (response.status === 404) {
           return { data: null, status: 404 };
+        }
+        if (response.status === 408) {
+          // Handle timeout from our proxy API
+          const errorData = await response.json().catch(() => ({}));
+          setError(errorData.error || 'Request timeout - please try again');
+          return { data: errorData, status: 408 };
         }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `API Error: ${response.statusText} (${response.status})`);

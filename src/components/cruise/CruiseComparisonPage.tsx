@@ -25,8 +25,8 @@ export const CruiseComparisonPage: React.FC = () => {
 
   const fetchCruises = useCallback(async () => {
     try {
-      const result = await apiCall(`${API_BASE_URL}?key=${API_KEY}`);
-      if (result.status === 404) {
+      const result = await apiCall(API_BASE_URL);
+      if (result.status === 404 || result.status === 408) {
         setAllCruises([]);
       } else if (result.data?.caches?.[0]?.data) {
         setAllCruises(result.data.caches[0].data);
