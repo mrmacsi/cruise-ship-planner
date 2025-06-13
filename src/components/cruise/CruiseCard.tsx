@@ -266,7 +266,7 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
                 value={notes}
                 onChange={handleNotesChange}
                 placeholder="Add your personal notes about this cruise..."
-                className="w-full p-2 border border-gray-300 rounded-md text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-2 border border-gray-300 rounded-md text-sm resize-y focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[60px] max-h-[200px]"
                 rows={3}
               />
             )}

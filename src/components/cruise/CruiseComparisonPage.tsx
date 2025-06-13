@@ -744,6 +744,8 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                   onRemove={() => handleToggleCompare(cruise['Unique Sailing ID'])} 
                   roomTypeFilter={roomTypeFilters[0]}
                   cheapestPrices={cheapestPrices}
+                  onNotesChange={handleNotesChange}
+                  allNotesOpen={allNotesOpen}
                 />
               ))}
             </div>

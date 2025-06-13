@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { CruiseData, ItineraryStop } from '@/types/cruise';
 import { CloseIcon, CalendarIcon, MapPinIcon, PoundIcon } from '@/components/ui/Icons';
 import Image from 'next/image';
@@ -17,11 +17,27 @@ interface ComparisonCardProps {
     suite: number;
     yachtClub: number;
   };
+  onNotesChange?: (sailingId: string, notes: string) => void;
+  allNotesOpen?: boolean;
 }
 
-export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove, roomTypeFilter, cheapestPrices }) => {
+export const ComparisonCard: React.FC<ComparisonCardProps> = ({ 
+  cruise, 
+  onRemove, 
+  roomTypeFilter, 
+  cheapestPrices,
+  onNotesChange,
+  allNotesOpen = true
+}) => {
   const [showItinerary, setShowItinerary] = useState(false);
+  const [showNotes, setShowNotes] = useState(allNotesOpen);
+  const [notes, setNotes] = useState(cruise['User Notes'] || '');
   const [imageError, setImageError] = useState(false);
+
+  // Update showNotes when allNotesOpen changes
+  useEffect(() => {
+    setShowNotes(allNotesOpen);
+  }, [allNotesOpen]);
 
   const formatPrice = useCallback((price: string) => {
     if (!price || typeof price !== 'string' || price.toLowerCase().includes('n/a')) {
@@ -68,20 +84,13 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
     setImageError(true);
   }, []);
 
-  const getHighlightedPrice = useCallback(() => {
-    switch (roomTypeFilter?.toLowerCase()) {
-      case 'interior':
-        return formatPrice(cruise['Interior Price']);
-      case 'ocean view':
-        return formatPrice(cruise['Ocean View Price']);
-      case 'balcony':
-        return formatPrice(cruise['Standard Balcony']);
-      case 'suite':
-        return formatPrice(cruise['Suite Price']);
-      default:
-        return null;
+  const handleNotesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newNotes = e.target.value;
+    setNotes(newNotes);
+    if (onNotesChange) {
+      onNotesChange(cruise['Unique Sailing ID'], newNotes);
     }
-  }, [cruise, roomTypeFilter, formatPrice]);
+  }, [cruise, onNotesChange]);
 
   const itinerary = Array.isArray(cruise['Complete Itinerary']) ? cruise['Complete Itinerary'] : [];
   const cheapestBadges = getCheapestBadges();
@@ -158,16 +167,6 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
         </div>
       </header>
 
-      {/* Highlighted Price */}
-      {getHighlightedPrice() && (
-        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-yellow-800">{roomTypeFilter}:</span>
-            <span className="text-lg font-bold text-yellow-900">{getHighlightedPrice()}</span>
-          </div>
-        </div>
-      )}
-
       <div className="border-t border-gray-200 pt-3 flex-grow">
         <h4 className="font-semibold text-sm mb-2 text-gray-800">All Pricing:</h4>
         <dl className="space-y-1 text-xs">
@@ -202,6 +201,34 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
             </div>
           )}
         </dl>
+      </div>
+
+      {/* Notes Section */}
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <button 
+          onClick={() => setShowNotes(!showNotes)} 
+          className="w-full text-left text-gray-600 font-medium hover:text-gray-800 mb-2 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded p-1 text-xs flex items-center justify-between"
+          aria-expanded={showNotes}
+        >
+          <span>Notes {notes && `(${notes.length > 15 ? notes.substring(0, 15) + '...' : notes})`}</span>
+          <span className="text-xs">{showNotes ? '▼' : '▶'}</span>
+        </button>
+
+        {showNotes && (
+          <textarea
+            value={notes}
+            onChange={handleNotesChange}
+            placeholder="Add your personal notes about this cruise..."
+            className="w-full p-2 border border-gray-300 rounded-md text-xs resize-y focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[60px] max-h-[200px]"
+            rows={3}
+          />
+        )}
+        
+        {!showNotes && notes && (
+          <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded border">
+            {notes.length > 40 ? notes.substring(0, 40) + '...' : notes}
+          </div>
+        )}
       </div>
 
       {/* Itinerary */}
