@@ -14,6 +14,7 @@ export default function CruiseShipPlanner() {
   const [editingCruise, setEditingCruise] = useState<CruiseData | null>(null);
   const [allNotesOpen, setAllNotesOpen] = useState(true);
   const [bulkSaveCallback, setBulkSaveCallback] = useState<((data: CruiseData[]) => Promise<void>) | null>(null);
+  const [deleteAfterSep4Callback, setDeleteAfterSep4Callback] = useState<(() => Promise<void>) | null>(null);
 
   return (
     <ErrorBoundary>
@@ -28,6 +29,17 @@ export default function CruiseShipPlanner() {
                   className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition font-semibold shadow-md text-sm"
                 >
                   {allNotesOpen ? 'Close All Notes' : 'Open All Notes'}
+                </button>
+                <button 
+                  onClick={() => {
+                    if (deleteAfterSep4Callback) {
+                      deleteAfterSep4Callback();
+                    }
+                  }} 
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition font-semibold shadow-md text-sm"
+                  disabled={!deleteAfterSep4Callback}
+                >
+                  Delete After Sep 4
                 </button>
                 <button 
                   onClick={() => setShowBulkImport(true)} 
@@ -73,6 +85,7 @@ export default function CruiseShipPlanner() {
             allNotesOpen={allNotesOpen}
             onEditCruise={(cruise) => { setEditingCruise(cruise); setShowForm(true); }}
             onBulkSaveReady={(saveCallback) => setBulkSaveCallback(() => saveCallback)}
+            onDeleteAfterSep4Ready={(deleteCallback) => setDeleteAfterSep4Callback(() => deleteCallback)}
           />
         </main>
 

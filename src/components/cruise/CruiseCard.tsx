@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { ProcessedCruise, ItineraryStop } from '@/types/cruise';
 import { CalendarIcon, MapPinIcon, PoundIcon, EditIcon, TrashIcon } from '@/components/ui/Icons';
+import { getShipDisplayName } from '@/utils/shipData';
 
 interface CruiseCardProps {
   cruise: ProcessedCruise;
@@ -15,6 +16,13 @@ interface CruiseCardProps {
   onNotesChange?: (sailingId: string, notes: string) => void;
   showAdminButtons?: boolean;
   allNotesOpen?: boolean;
+  cheapestPrices?: {
+    interior: number;
+    oceanView: number;
+    balcony: number;
+    suite: number;
+    yachtClub: number;
+  };
 }
 
 export const CruiseCard: React.FC<CruiseCardProps> = ({ 
@@ -26,7 +34,8 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
   onDelete,
   onNotesChange,
   showAdminButtons = false,
-  allNotesOpen = true
+  allNotesOpen = true,
+  cheapestPrices
 }) => {
   const [showItinerary, setShowItinerary] = useState(false);
   const [showNotes, setShowNotes] = useState(allNotesOpen);
@@ -159,7 +168,7 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
 
       <div className="p-4 flex-grow flex flex-col">
         <header className="mb-3">
-          <h3 className="text-lg font-bold text-blue-900">{cruise['Ship Name']}</h3>
+          <h3 className="text-lg font-bold text-blue-900">{getShipDisplayName(cruise['Ship Name'])}</h3>
           <p className="text-xs text-gray-500">{cruise.Duration}</p>
         </header>
 

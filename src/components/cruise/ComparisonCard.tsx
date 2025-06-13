@@ -4,14 +4,22 @@ import React, { useCallback, useState } from 'react';
 import { CruiseData, ItineraryStop } from '@/types/cruise';
 import { CloseIcon, CalendarIcon, MapPinIcon, PoundIcon } from '@/components/ui/Icons';
 import Image from 'next/image';
+import { parsePrice } from '@/utils/cruiseUtils';
 
 interface ComparisonCardProps {
   cruise: CruiseData;
   onRemove: () => void;
   roomTypeFilter?: string;
+  cheapestPrices?: {
+    interior: number;
+    oceanView: number;
+    balcony: number;
+    suite: number;
+    yachtClub: number;
+  };
 }
 
-export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove, roomTypeFilter }) => {
+export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove, roomTypeFilter, cheapestPrices }) => {
   const [showItinerary, setShowItinerary] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -21,6 +29,20 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
     }
     return price.split('(')[0].trim();
   }, []);
+
+  const isPriceLowest = useCallback((price: string, category: 'interior' | 'oceanView' | 'balcony' | 'suite' | 'yachtClub') => {
+    if (!cheapestPrices) return false;
+    const numericPrice = parsePrice(price);
+    return numericPrice > 0 && numericPrice === cheapestPrices[category];
+  }, [cheapestPrices]);
+
+  const getPriceClassName = useCallback((price: string, category: 'interior' | 'oceanView' | 'balcony' | 'suite' | 'yachtClub') => {
+    const baseClass = "font-semibold";
+    if (isPriceLowest(price, category)) {
+      return `${baseClass} text-green-600 bg-green-50 px-1 rounded`;
+    }
+    return baseClass;
+  }, [isPriceLowest]);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
@@ -123,23 +145,23 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
           </div>
           <div className="flex justify-between">
             <dt className="font-medium">Interior:</dt>
-            <dd className="font-semibold">{formatPrice(cruise['Interior Price'])}</dd>
+            <dd className={getPriceClassName(cruise['Interior Price'], 'interior')}>{formatPrice(cruise['Interior Price'])}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="font-medium">Ocean View:</dt>
-            <dd className="font-semibold">{formatPrice(cruise['Ocean View Price'])}</dd>
+            <dd className={getPriceClassName(cruise['Ocean View Price'], 'oceanView')}>{formatPrice(cruise['Ocean View Price'])}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="font-medium">Balcony:</dt>
-            <dd className="font-semibold">{formatPrice(cruise['Standard Balcony'])}</dd>
+            <dd className={getPriceClassName(cruise['Standard Balcony'], 'balcony')}>{formatPrice(cruise['Standard Balcony'])}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="font-medium">Suite:</dt>
-            <dd className="font-semibold">{formatPrice(cruise['Suite Price'])}</dd>
+            <dd className={getPriceClassName(cruise['Suite Price'], 'suite')}>{formatPrice(cruise['Suite Price'])}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="font-medium">Yacht Club:</dt>
-            <dd className="font-semibold">{formatPrice(cruise['Yacht Club Price'])}</dd>
+            <dd className={getPriceClassName(cruise['Yacht Club Price'], 'yachtClub')}>{formatPrice(cruise['Yacht Club Price'])}</dd>
           </div>
           {cruise['Special Offers'] && cruise['Special Offers'] !== 'None' && (
             <div className="flex justify-between">

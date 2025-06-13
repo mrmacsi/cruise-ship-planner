@@ -5,6 +5,7 @@ import { CruiseData, ProcessedCruise } from '@/types/cruise';
 import { useApi } from '@/hooks/useApi';
 import { useDebounce } from '@/hooks/useDebounce';
 import { parsePrice, parseDepartureDate, parseArrivalDate, getAvailableDates, getAvailableCities, sanitizeInput } from '@/utils/cruiseUtils';
+import { getShipDisplayName } from '@/utils/shipData';
 import { API_BASE_URL, API_KEY, MIN_BUDGET_VALUE, MAX_BUDGET_VALUE } from '@/utils/constants';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CruiseCard } from '@/components/cruise/CruiseCard';
@@ -14,28 +15,29 @@ interface CruiseComparisonPageProps {
   allNotesOpen?: boolean;
   onEditCruise?: (cruise: CruiseData) => void;
   onBulkSaveReady?: (saveCallback: (data: CruiseData[]) => Promise<void>) => void;
+  onDeleteAfterSep4Ready?: (deleteCallback: () => Promise<void>) => void;
 }
 
 export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({ 
   allNotesOpen = true,
   onEditCruise,
-  onBulkSaveReady
+  onBulkSaveReady,
+  onDeleteAfterSep4Ready
 }) => {
   const [allCruises, setAllCruises] = useState<CruiseData[]>([]);
   const [comparisonList, setComparisonList] = useState<string[]>([]);
-  const [selectedShip, setSelectedShip] = useState('');
+  const [selectedShips, setSelectedShips] = useState<string[]>([]);
   const [maxBudget, setMaxBudget] = useState('');
   const [departureDate, setDepartureDate] = useState('');
   const [arrivalDate, setArrivalDate] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [itineraryQuery, setItineraryQuery] = useState('');
-  const [roomTypeFilter, setRoomTypeFilter] = useState('');
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [itineraryQueries, setItineraryQueries] = useState<string[]>([]);
+  const [roomTypeFilters, setRoomTypeFilters] = useState<string[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const savingNotesRef = useRef(false);
 
   const { apiCall, isLoading, error } = useApi();
   
-  const debouncedItineraryQuery = useDebounce(itineraryQuery, 300);
   const debouncedMaxBudget = useDebounce(maxBudget, 300);
   const debouncedNotes = useDebounce(notes, 1000);
 
@@ -132,11 +134,38 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     }).filter((cruise): cruise is ProcessedCruise => cruise !== null);
   }, [allCruises]);
 
+  // Calculate cheapest prices for each room type across all cruises
+  const cheapestPrices = useMemo(() => {
+    const prices = {
+      interior: Infinity,
+      oceanView: Infinity,
+      balcony: Infinity,
+      suite: Infinity,
+      yachtClub: Infinity
+    };
+
+    processedCruises.forEach(cruise => {
+      const interiorPrice = parsePrice(cruise['Interior Price']);
+      const oceanViewPrice = parsePrice(cruise['Ocean View Price']);
+      const balconyPrice = parsePrice(cruise['Standard Balcony']);
+      const suitePrice = parsePrice(cruise['Suite Price']);
+      const yachtClubPrice = parsePrice(cruise['Yacht Club Price']);
+
+      if (interiorPrice < prices.interior && interiorPrice > 0) prices.interior = interiorPrice;
+      if (oceanViewPrice < prices.oceanView && oceanViewPrice > 0) prices.oceanView = oceanViewPrice;
+      if (balconyPrice < prices.balcony && balconyPrice > 0) prices.balcony = balconyPrice;
+      if (suitePrice < prices.suite && suitePrice > 0) prices.suite = suitePrice;
+      if (yachtClubPrice < prices.yachtClub && yachtClubPrice > 0) prices.yachtClub = yachtClubPrice;
+    });
+
+    return prices;
+  }, [processedCruises]);
+
   const filteredCruises = useMemo(() => {
     let result = [...processedCruises];
 
-    if (selectedShip) {
-      result = result.filter(c => c['Ship Name'] === selectedShip);
+    if (selectedShips.length > 0) {
+      result = result.filter(c => selectedShips.includes(c['Ship Name']));
     }
 
     if (debouncedMaxBudget) {
@@ -176,55 +205,53 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
       }
     }
 
-    if (selectedCity) {
+    if (selectedCities.length > 0) {
       result = result.filter(c => {
-        const searchTerm = selectedCity.toLowerCase();
-        
-        // Check departure port
-        if (c['Departure Port'] && c['Departure Port'].toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-        
-        // Check all ports in complete itinerary
-        if (Array.isArray(c['Complete Itinerary'])) {
-          return c['Complete Itinerary'].some(stop => 
-            stop?.port?.toLowerCase().includes(searchTerm)
-          );
-        }
-        
-
-        
-        return false;
+        return selectedCities.some(selectedCity => {
+          const searchTerm = selectedCity.toLowerCase();
+          
+          // Check departure port
+          if (c['Departure Port'] && c['Departure Port'].toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+          
+          // Check all ports in complete itinerary
+          if (Array.isArray(c['Complete Itinerary'])) {
+            return c['Complete Itinerary'].some(stop => 
+              stop?.port?.toLowerCase().includes(searchTerm)
+            );
+          }
+          
+          return false;
+        });
       });
     }
 
-    if (debouncedItineraryQuery) {
-      const query = sanitizeInput(debouncedItineraryQuery).toLowerCase();
-      if (query) {
-        result = result.filter(c => {
+    if (itineraryQueries.length > 0) {
+      result = result.filter(c => {
+        return itineraryQueries.some(query => {
+          const searchTerm = sanitizeInput(query).toLowerCase();
+          if (!searchTerm) return true;
+          
           // Search in departure port
-          if (c['Departure Port']?.toLowerCase().includes(query)) {
+          if (c['Departure Port']?.toLowerCase().includes(searchTerm)) {
             return true;
           }
           
           // Search in all ports in complete itinerary
           if (Array.isArray(c['Complete Itinerary'])) {
             return c['Complete Itinerary'].some(stop => 
-              stop?.port?.toLowerCase().includes(query)
+              stop?.port?.toLowerCase().includes(searchTerm)
             );
           }
           
-
-          
           return false;
         });
-      }
+      });
     }
 
-    if (roomTypeFilter) {
+    if (roomTypeFilters.length > 0) {
       result = result.filter(c => {
-        const roomType = roomTypeFilter.toLowerCase();
-        
         const hasValidPrice = (price: string | undefined) => {
           return price && 
                  price.trim() !== '' && 
@@ -233,23 +260,25 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                  parsePrice(price) > 0;
         };
         
-        switch (roomType) {
-          case 'interior':
-            return hasValidPrice(c['Interior Price']);
-          case 'ocean view':
-            return hasValidPrice(c['Ocean View Price']);
-          case 'balcony':
-            return hasValidPrice(c['Standard Balcony']);
-          case 'suite':
-            return hasValidPrice(c['Suite Price']) || hasValidPrice(c['Yacht Club Price']);
-          default:
-            return true;
-        }
+        return roomTypeFilters.some(roomType => {
+          switch (roomType.toLowerCase()) {
+            case 'interior':
+              return hasValidPrice(c['Interior Price']);
+            case 'ocean view':
+              return hasValidPrice(c['Ocean View Price']);
+            case 'balcony':
+              return hasValidPrice(c['Standard Balcony']);
+            case 'suite':
+              return hasValidPrice(c['Suite Price']) || hasValidPrice(c['Yacht Club Price']);
+            default:
+              return true;
+          }
+        });
       });
     }
 
     return result;
-  }, [processedCruises, selectedShip, debouncedMaxBudget, departureDate, arrivalDate, selectedCity, debouncedItineraryQuery, roomTypeFilter]);
+  }, [processedCruises, selectedShips, debouncedMaxBudget, departureDate, arrivalDate, selectedCities, itineraryQueries, roomTypeFilters]);
 
   const shipNames = useMemo(() => {
     const names = Array.from(new Set(processedCruises.map(c => c['Ship Name']).filter(Boolean)));
@@ -309,13 +338,13 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
   }, []);
 
   const handleResetFilters = useCallback(() => {
-    setSelectedShip('');
+    setSelectedShips([]);
     setMaxBudget('');
     setDepartureDate('');
     setArrivalDate('');
-    setSelectedCity('');
-    setItineraryQuery('');
-    setRoomTypeFilter('');
+    setSelectedCities([]);
+    setItineraryQueries([]);
+    setRoomTypeFilters([]);
   }, []);
 
   const handleBudgetChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,6 +386,46 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     }
   }, [allCruises, apiCall]);
 
+  const handleDeleteAfterSeptember4 = useCallback(async () => {
+    const september4 = new Date('2024-09-04');
+    const cruisesToDelete = allCruises.filter(cruise => {
+      const departureDate = parseDepartureDate(cruise['Departure Date']);
+      return departureDate && departureDate > september4;
+    });
+
+    if (cruisesToDelete.length === 0) {
+      alert('No cruises found after September 4, 2024');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete ${cruisesToDelete.length} cruises departing after September 4, 2024? This action cannot be undone.`;
+    
+    if (window.confirm(confirmMessage)) {
+      try {
+        const updatedCruises = allCruises.filter(cruise => {
+          const departureDate = parseDepartureDate(cruise['Departure Date']);
+          return !departureDate || departureDate <= september4;
+        });
+        
+        await apiCall(API_BASE_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            key: API_KEY, 
+            data: updatedCruises, 
+            ttl: null 
+          }),
+        });
+
+        setAllCruises(updatedCruises);
+        alert(`Successfully deleted ${cruisesToDelete.length} cruises`);
+      } catch (error) {
+        console.error('Delete failed:', error);
+        alert('Failed to delete cruises');
+      }
+    }
+  }, [allCruises, apiCall]);
+
   const handleOpenEditForm = useCallback((cruise: CruiseData) => {
     if (onEditCruise) {
       onEditCruise(cruise);
@@ -389,6 +458,42 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     }
   }, [onBulkSaveReady, handleBulkSave]);
 
+  // Expose delete after Sep 4 callback to parent
+  useEffect(() => {
+    if (onDeleteAfterSep4Ready) {
+      onDeleteAfterSep4Ready(handleDeleteAfterSeptember4);
+    }
+  }, [onDeleteAfterSep4Ready, handleDeleteAfterSeptember4]);
+
+  // Multi-select handlers
+  const handleShipSelect = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value && !selectedShips.includes(value)) {
+      setSelectedShips(prev => [...prev, value]);
+    }
+  }, [selectedShips]);
+
+  const handleCitySelect = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value && !selectedCities.includes(value)) {
+      setSelectedCities(prev => [...prev, value]);
+    }
+  }, [selectedCities]);
+
+  const handleDepartureCitySelect = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value && !itineraryQueries.includes(value)) {
+      setItineraryQueries(prev => [...prev, value]);
+    }
+  }, [itineraryQueries]);
+
+  const handleRoomTypeSelect = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value && !roomTypeFilters.includes(value)) {
+      setRoomTypeFilters(prev => [...prev, value]);
+    }
+  }, [roomTypeFilters]);
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto p-4 md:p-8">
@@ -412,18 +517,33 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
               </label>
               <select 
                 id="ship-select" 
-                value={selectedShip} 
-                onChange={(e) => setSelectedShip(e.target.value)} 
+                value="" 
+                onChange={handleShipSelect} 
                 className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 aria-describedby="ship-select-desc"
               >
-                <option value="">All Ships</option>
+                <option value="">Select ships...</option>
                 {shipNames.map(name => (
-                  <option key={name} value={name}>{name}</option>
+                  <option key={name} value={name}>{getShipDisplayName(name)}</option>
                 ))}
               </select>
+              {selectedShips.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedShips.map(ship => (
+                    <span key={ship} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs flex items-center">
+                      {ship}
+                      <button 
+                        onClick={() => setSelectedShips(prev => prev.filter(s => s !== ship))}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <span id="ship-select-desc" className="sr-only">
-                Select a specific ship or leave as all ships
+                Select multiple ships to filter by
               </span>
             </div>
 
@@ -487,18 +607,33 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
               </label>
               <select 
                 id="city-select" 
-                value={selectedCity} 
-                onChange={(e) => setSelectedCity(e.target.value)} 
+                value="" 
+                onChange={handleCitySelect} 
                 className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 aria-describedby="city-select-desc"
               >
-                <option value="">All Cities</option>
+                <option value="">Select cities...</option>
                 {availableCities.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>
+              {selectedCities.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedCities.map(city => (
+                    <span key={city} className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs flex items-center">
+                      {city}
+                      <button 
+                        onClick={() => setSelectedCities(prev => prev.filter(c => c !== city))}
+                        className="ml-1 text-green-600 hover:text-green-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <span id="city-select-desc" className="sr-only">
-                Select a specific city or port
+                Select multiple cities or ports
               </span>
             </div>
 
@@ -508,18 +643,33 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
               </label>
               <select 
                 id="departure-city-select" 
-                value={itineraryQuery} 
-                onChange={(e) => setItineraryQuery(e.target.value)} 
+                value="" 
+                onChange={handleDepartureCitySelect} 
                 className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 aria-describedby="departure-city-select-desc"
               >
-                <option value="">All Departure Cities</option>
+                <option value="">Select departure cities...</option>
                 {Array.from(new Set(processedCruises.map(c => c['Departure Port']).filter(Boolean))).sort().map(port => (
                   <option key={port} value={port}>{port}</option>
                 ))}
               </select>
+              {itineraryQueries.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {itineraryQueries.map(query => (
+                    <span key={query} className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs flex items-center">
+                      {query}
+                      <button 
+                        onClick={() => setItineraryQueries(prev => prev.filter(q => q !== query))}
+                        className="ml-1 text-purple-600 hover:text-purple-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <span id="departure-city-select-desc" className="sr-only">
-                Select a specific departure city
+                Select multiple departure cities
               </span>
             </div>
 
@@ -529,24 +679,46 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
               </label>
               <select 
                 id="room-type-select" 
-                value={roomTypeFilter} 
-                onChange={(e) => setRoomTypeFilter(e.target.value)} 
+                value="" 
+                onChange={handleRoomTypeSelect} 
                 className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 aria-describedby="room-type-select-desc"
               >
-                <option value="">All Room Types</option>
+                <option value="">Select room types...</option>
                 <option value="Interior">Interior</option>
                 <option value="Ocean View">Ocean View</option>
                 <option value="Balcony">Balcony</option>
                 <option value="Suite">Suite</option>
               </select>
+              {roomTypeFilters.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {roomTypeFilters.map(roomType => (
+                    <span key={roomType} className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs flex items-center">
+                      {roomType}
+                      <button 
+                        onClick={() => setRoomTypeFilters(prev => prev.filter(r => r !== roomType))}
+                        className="ml-1 text-orange-600 hover:text-orange-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <span id="room-type-select-desc" className="sr-only">
-                Filter by specific room type for comparison
+                Select multiple room types for comparison
               </span>
             </div>
 
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-between">
+            <button 
+              onClick={handleDeleteAfterSeptember4} 
+              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
+              aria-label="Delete all cruises after September 4, 2024"
+            >
+              Delete After Sep 4
+            </button>
             <button 
               onClick={handleResetFilters} 
               className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
@@ -568,7 +740,8 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                   key={cruise['Unique Sailing ID']} 
                   cruise={cruise} 
                   onRemove={() => handleToggleCompare(cruise['Unique Sailing ID'])} 
-                  roomTypeFilter={roomTypeFilter}
+                  roomTypeFilter={roomTypeFilters[0]}
+                  cheapestPrices={cheapestPrices}
                 />
               ))}
             </div>
@@ -610,6 +783,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                   onNotesChange={handleNotesChange}
                   showAdminButtons={true}
                   allNotesOpen={allNotesOpen}
+                  cheapestPrices={cheapestPrices}
                 />
               ))}
             </div>
