@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { CruiseData, ProcessedCruise } from '@/types/cruise';
 import { useApi } from '@/hooks/useApi';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -29,6 +29,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
   const [itineraryQuery, setItineraryQuery] = useState('');
   const [roomTypeFilter, setRoomTypeFilter] = useState('');
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const savingNotesRef = useRef(false);
 
   const { apiCall, isLoading, error } = useApi();
   
@@ -58,10 +59,13 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
 
   // Silent background save for notes without any UI disruption
   useEffect(() => {
-    if (Object.keys(debouncedNotes).length > 0) {
+    if (Object.keys(debouncedNotes).length > 0 && !savingNotesRef.current) {
       const saveNotes = async () => {
+        savingNotesRef.current = true;
         try {
-          const updatedCruises = allCruises.map(cruise => ({
+          // Get current cruises state to avoid stale closure
+          const currentCruises = allCruises;
+          const updatedCruises = currentCruises.map(cruise => ({
             ...cruise,
             'User Notes': debouncedNotes[cruise['Unique Sailing ID']] || cruise['User Notes'] || ''
           }));
@@ -77,16 +81,31 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             }),
           });
 
-          // Update local state silently
-          setAllCruises(updatedCruises);
+          // Update local state silently only if notes actually changed
+          setAllCruises(prev => {
+            const hasChanges = prev.some(cruise => {
+              const newNote = debouncedNotes[cruise['Unique Sailing ID']];
+              return newNote !== undefined && newNote !== cruise['User Notes'];
+            });
+            
+            if (hasChanges) {
+              return prev.map(cruise => ({
+                ...cruise,
+                'User Notes': debouncedNotes[cruise['Unique Sailing ID']] || cruise['User Notes'] || ''
+              }));
+            }
+            return prev;
+          });
         } catch (error) {
           console.error('Failed to save notes:', error);
+        } finally {
+          savingNotesRef.current = false;
         }
       };
       
       saveNotes();
     }
-  }, [debouncedNotes, allCruises, apiCall]);
+  }, [debouncedNotes, apiCall]);
 
   const processedCruises = useMemo((): ProcessedCruise[] => {
     if (!Array.isArray(allCruises)) return [];
