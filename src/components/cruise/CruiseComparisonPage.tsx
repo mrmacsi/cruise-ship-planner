@@ -7,8 +7,11 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { parsePrice, parseDepartureDate, parseArrivalDate, getAvailableDates, getAvailableCities, sanitizeInput } from '@/utils/cruiseUtils';
 import { API_BASE_URL, API_KEY, MIN_BUDGET_VALUE, MAX_BUDGET_VALUE } from '@/utils/constants';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PlusIcon } from '@/components/ui/Icons';
 import { CruiseCard } from '@/components/cruise/CruiseCard';
 import { ComparisonCard } from '@/components/cruise/ComparisonCard';
+import { CruiseForm } from '@/components/admin/CruiseForm';
+import { BulkImportForm } from '@/components/admin/BulkImportForm';
 
 export const CruiseComparisonPage: React.FC = () => {
   const [allCruises, setAllCruises] = useState<CruiseData[]>([]);
@@ -20,11 +23,17 @@ export const CruiseComparisonPage: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [itineraryQuery, setItineraryQuery] = useState('');
   const [roomTypeFilter, setRoomTypeFilter] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [editingCruise, setEditingCruise] = useState<CruiseData | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [isBackgroundSaving, setIsBackgroundSaving] = useState(false);
 
   const { apiCall, isLoading, error } = useApi();
   
   const debouncedItineraryQuery = useDebounce(itineraryQuery, 300);
   const debouncedMaxBudget = useDebounce(maxBudget, 300);
+  const debouncedNotes = useDebounce(notes, 1000);
 
   const fetchCruises = useCallback(async () => {
     try {
@@ -46,6 +55,41 @@ export const CruiseComparisonPage: React.FC = () => {
     fetchCruises();
   }, [fetchCruises]);
 
+  // Background save for notes without disrupting the UI
+  useEffect(() => {
+    if (Object.keys(debouncedNotes).length > 0) {
+      const saveNotes = async () => {
+        setIsBackgroundSaving(true);
+        try {
+          const updatedCruises = allCruises.map(cruise => ({
+            ...cruise,
+            'User Notes': debouncedNotes[cruise['Unique Sailing ID']] || cruise['User Notes'] || ''
+          }));
+          
+          const result = await apiCall(API_BASE_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              key: API_KEY, 
+              data: updatedCruises, 
+              ttl: null 
+            }),
+          });
+
+          if (result.status !== 'aborted') {
+            setAllCruises(updatedCruises);
+          }
+        } catch (error) {
+          console.error('Failed to save notes:', error);
+        } finally {
+          setIsBackgroundSaving(false);
+        }
+      };
+      
+      saveNotes();
+    }
+  }, [debouncedNotes, allCruises, apiCall]);
+
   const processedCruises = useMemo((): ProcessedCruise[] => {
     if (!Array.isArray(allCruises)) return [];
     
@@ -56,7 +100,9 @@ export const CruiseComparisonPage: React.FC = () => {
           lowestPrice: Math.min(
             parsePrice(cruise['Interior Price']),
             parsePrice(cruise['Ocean View Price']),
-            parsePrice(cruise['Standard Balcony'])
+            parsePrice(cruise['Standard Balcony']),
+            parsePrice(cruise['Suite Price']),
+            parsePrice(cruise['Yacht Club Price'])
           ),
           departureDateObj: parseDepartureDate(cruise['Departure Date'])
         };
@@ -171,12 +217,16 @@ export const CruiseComparisonPage: React.FC = () => {
       const priceA = Math.min(
         parsePrice(a['Interior Price']),
         parsePrice(a['Ocean View Price']),
-        parsePrice(a['Standard Balcony'])
+        parsePrice(a['Standard Balcony']),
+        parsePrice(a['Suite Price']),
+        parsePrice(a['Yacht Club Price'])
       );
       const priceB = Math.min(
         parsePrice(b['Interior Price']),
         parsePrice(b['Ocean View Price']),
-        parsePrice(b['Standard Balcony'])
+        parsePrice(b['Standard Balcony']),
+        parsePrice(b['Suite Price']),
+        parsePrice(b['Yacht Club Price'])
       );
       
       return priceA - priceB;
@@ -209,24 +259,46 @@ export const CruiseComparisonPage: React.FC = () => {
     }
   }, []);
 
-  const handleNotesChange = useCallback(async (sailingId: string, notes: string) => {
-    // Update local state immediately
-    setAllCruises(prev => prev.map(cruise => 
-      cruise['Unique Sailing ID'] === sailingId 
-        ? { ...cruise, 'User Notes': notes }
-        : cruise
-    ));
+  const handleNotesChange = useCallback((sailingId: string, value: string) => {
+    setNotes(prev => ({
+      ...prev,
+      [sailingId]: value
+    }));
+  }, []);
 
-    // Save to API
+  const handleSaveCruises = useCallback(async (updatedCruises: CruiseData[]) => {
     try {
-      const updatedCruises = allCruises.map(cruise => 
-        cruise['Unique Sailing ID'] === sailingId 
-          ? { ...cruise, 'User Notes': notes }
-          : cruise
-      );
+      updatedCruises.forEach((cruise, index) => {
+        if (!cruise['Ship Name'] || !cruise['Ship Name'].toString().trim()) {
+          throw new Error(`Ship Name is required`);
+        }
+        
+        // Add default values for missing fields
+        cruise['Departure Port'] = cruise['Departure Port'] || 'TBD';
+        cruise['Departure Date'] = cruise['Departure Date'] || 'TBD';
+        cruise['Duration'] = cruise['Duration'] || '7 Nights';
+        cruise['Interior Price'] = cruise['Interior Price'] || 'N/A';
+        cruise['Ocean View Price'] = cruise['Ocean View Price'] || 'N/A';
+        cruise['Standard Balcony'] = cruise['Standard Balcony'] || 'N/A';
+        cruise['Suite Price'] = cruise['Suite Price'] || 'N/A';
+        cruise['Yacht Club Price'] = cruise['Yacht Club Price'] || 'N/A';
+        cruise['Special Offers'] = cruise['Special Offers'] || 'None';
+        cruise['Itinerary Map'] = cruise['Itinerary Map'] || '';
+        cruise['Booking Link (Constructed)'] = cruise['Booking Link (Constructed)'] || '';
+        
+        if (!Array.isArray(cruise['Complete Itinerary'])) {
+          cruise['Complete Itinerary'] = [];
+        }
+        
+        if (!cruise['Unique Sailing ID']) {
+          cruise['Unique Sailing ID'] = `cruise_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`;
+        }
+      });
+
+      const method = allCruises.length > 0 ? 'PUT' : 'POST';
       
-      await apiCall(API_BASE_URL, {
-        method: 'PUT',
+      const result = await apiCall(API_BASE_URL, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           key: API_KEY, 
@@ -234,11 +306,54 @@ export const CruiseComparisonPage: React.FC = () => {
           ttl: null 
         }),
       });
+
+      if (result.status !== 'aborted') {
+        setAllCruises(updatedCruises);
+        setShowForm(false);
+        setEditingCruise(null);
+        setShowBulkImport(false);
+      }
     } catch (error) {
-      console.error('Failed to save notes:', error);
-      // Optionally show user feedback about save failure
+      console.error('Save failed:', error);
+      throw error;
     }
-  }, [allCruises, apiCall]);
+  }, [apiCall, allCruises.length]);
+
+  const handleAdd = useCallback(async (newCruise: CruiseData) => {
+    const cruiseWithId = { 
+      ...newCruise, 
+      "Unique Sailing ID": `cruise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` 
+    };
+    const updatedCruises = [...allCruises, cruiseWithId];
+    await handleSaveCruises(updatedCruises);
+  }, [allCruises, handleSaveCruises]);
+
+  const handleEdit = useCallback(async (updatedCruise: CruiseData) => {
+    const updatedCruises = allCruises.map(c => 
+      c['Unique Sailing ID'] === updatedCruise['Unique Sailing ID'] ? updatedCruise : c
+    );
+    await handleSaveCruises(updatedCruises);
+  }, [allCruises, handleSaveCruises]);
+
+  const handleDelete = useCallback((sailingId: string) => {
+    const cruiseToDelete = allCruises.find(c => c['Unique Sailing ID'] === sailingId);
+    const confirmMessage = `Are you sure you want to delete "${cruiseToDelete?.['Ship Name'] || 'this cruise'}"? This action cannot be undone.`;
+    
+    if (window.confirm(confirmMessage)) {
+      const updatedCruises = allCruises.filter(c => c['Unique Sailing ID'] !== sailingId);
+      handleSaveCruises(updatedCruises);
+    }
+  }, [allCruises, handleSaveCruises]);
+
+  const handleCloseForm = useCallback(() => {
+    setShowForm(false);
+    setEditingCruise(null);
+  }, []);
+
+  const handleOpenEditForm = useCallback((cruise: CruiseData) => {
+    setEditingCruise(cruise);
+    setShowForm(true);
+  }, []);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -250,12 +365,36 @@ export const CruiseComparisonPage: React.FC = () => {
           <p className="text-lg text-gray-600">
             Find and compare your perfect MSC cruise vacation.
           </p>
+          {isBackgroundSaving && (
+            <div className="mt-2 text-sm text-green-600 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+              Saving notes...
+            </div>
+          )}
         </header>
 
         <section className="bg-white p-6 rounded-2xl shadow-lg mb-8" aria-labelledby="filter-heading">
-          <h2 id="filter-heading" className="text-2xl font-semibold mb-4 text-blue-800">
-            Filter Options
-          </h2>
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+            <h2 id="filter-heading" className="text-2xl font-semibold text-blue-800">
+              Filter Options
+            </h2>
+            <div className="flex space-x-2">
+              <button 
+                onClick={() => setShowBulkImport(true)} 
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition font-semibold shadow-md"
+                disabled={isLoading}
+              >
+                Bulk Import
+              </button>
+              <button 
+                onClick={() => { setEditingCruise(null); setShowForm(true); }} 
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-semibold shadow-md flex items-center"
+                disabled={isLoading}
+              >
+                <PlusIcon /> Add New
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <div className="flex flex-col">
               <label htmlFor="ship-select" className="mb-1 font-medium text-gray-700">
@@ -445,7 +584,7 @@ export const CruiseComparisonPage: React.FC = () => {
           )}
 
           {!isLoading && !error && filteredCruises.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredCruises.map(cruise => (
                 <CruiseCard 
                   key={cruise['Unique Sailing ID']} 
@@ -453,7 +592,10 @@ export const CruiseComparisonPage: React.FC = () => {
                   onCompareToggle={handleToggleCompare} 
                   isComparing={comparisonList.includes(cruise['Unique Sailing ID'])}
                   canAddToComparison={true}
+                  onEdit={handleOpenEditForm}
+                  onDelete={handleDelete}
                   onNotesChange={handleNotesChange}
+                  showAdminButtons={true}
                 />
               ))}
             </div>
@@ -466,6 +608,23 @@ export const CruiseComparisonPage: React.FC = () => {
           )}
         </section>
       </div>
+
+      {showForm && (
+        <CruiseForm 
+          cruise={editingCruise} 
+          onSave={editingCruise ? handleEdit : handleAdd}
+          onClose={handleCloseForm}
+          isLoading={isLoading}
+        />
+      )}
+      
+      {showBulkImport && (
+        <BulkImportForm
+          onSave={handleSaveCruises}
+          onClose={() => setShowBulkImport(false)}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }; 

@@ -15,7 +15,8 @@ export interface CruiseData {
   'Interior Price': string;
   'Ocean View Price': string;
   'Standard Balcony': string;
-  'Suite Options': string;
+  'Suite Price': string;
+  'Yacht Club Price': string;
   'Special Offers': string;
   'Itinerary Map': string;
   'Booking Link (Constructed)': string;
