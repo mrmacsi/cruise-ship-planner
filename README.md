@@ -1,209 +1,217 @@
-# Cruise Ship Planner - Refactored Next.js Application
+# 🚢 MSC Cruise Manager
 
-A comprehensive Schengen Area travel planning application built with Next.js, TypeScript, and Tailwind CSS. This project was refactored from a monolithic React component into a clean, modular architecture.
+A modern, responsive web application for comparing and managing MSC cruise listings. Built with Next.js 14, TypeScript, and Tailwind CSS.
 
-## 🌟 Live Demo
+![Cruise Manager Screenshot](https://placehold.co/800x400/4f46e5/ffffff?text=MSC+Cruise+Manager+Dashboard)
 
-🚀 **[View Live Application](https://cruise-ship-planner-xd80oc46m-codeparkuk.vercel.app)**
+## ✨ Features
 
-> Experience the full functionality of the Schengen Travel Planner with real-time calculations, interactive timeline, and administrative features.
+### 🔍 **Cruise Comparison Tool**
+- **Advanced Filtering**: Filter by ship, budget, departure date, and destinations
+- **Real-time Search**: Instant search through cruise itineraries
+- **Side-by-Side Comparison**: Compare up to 4 cruises simultaneously
+- **Price Analysis**: View lowest prices across cabin categories
+- **Detailed Itineraries**: Expandable port-by-port cruise details
 
-## 🚀 Features
+### ⚙️ **Admin Panel**
+- **CRUD Operations**: Add, edit, and delete cruise listings
+- **Bulk Import**: Import multiple cruises via JSON
+- **Form Validation**: Comprehensive data validation
+- **Real-time Updates**: Instant UI updates after data changes
 
-- **Trip Management**: Add, edit, and delete travel trips with automatic Schengen area detection
-- **Timeline Visualization**: Interactive drag-and-drop timeline for trip planning
-- **Schengen Calculations**: Real-time calculation of 90/180-day Schengen area limits
-- **UK Tax Residency**: Track days needed for UK tax residency requirements
-- **Data Persistence**: Automatic saving to Redis cache via API
-- **Admin Panel**: JSON editor for direct data manipulation
+### 🎨 **User Experience**
+- **Responsive Design**: Optimized for desktop, tablet, and mobile
+- **Accessibility**: WCAG compliant with ARIA labels and keyboard navigation
+- **Error Handling**: Graceful error boundaries and user feedback
+- **Loading States**: Visual feedback during API operations
 
-## 🏗️ Architecture
+## 🚀 Tech Stack
 
-The application follows a modular component architecture with clear separation of concerns:
+- **Framework**: [Next.js 14](https://nextjs.org/) with App Router
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **State Management**: React Hooks (useState, useEffect, useCallback, useMemo)
+- **API Integration**: Custom fetch hooks with error handling
+- **Data Persistence**: External Redis cache API
+- **Development**: ESLint, TypeScript strict mode
 
-### 📁 Component Structure
+## 📦 Installation
 
-```
-src/
-├── components/
-│   ├── ui/                    # Reusable UI components
-│   │   ├── TabNavigation.tsx  # Tab switching interface
-│   │   ├── LoadingSpinner.tsx # Loading state indicator
-│   │   └── StatusIndicator.tsx# Save status and reset button
-│   ├── cruise/                # Trip planning components
-│   │   ├── InfoPanel.tsx      # Schengen rules information
-│   │   ├── DataTable.tsx      # Trip data table with CRUD
-│   │   ├── DataForm.tsx       # Add new trip form
-│   │   ├── Visualization.tsx  # Interactive timeline
-│   │   ├── Statistics.tsx     # City limits and tax stats
-│   │   └── Calculator.tsx     # Schengen days calculator
-│   ├── admin/                 # Admin functionality
-│   │   ├── AdminPanel.tsx     # JSON data editor
-│   │   └── DataViewer.tsx     # Cache data viewer
-│   └── CruiseShipPlanner.tsx  # Main orchestrating component
-├── hooks/                     # Custom React hooks
-│   ├── useCache.ts           # API/cache operations
-│   ├── useData.ts            # Trip data management
-│   ├── useCalculations.ts    # Schengen/tax calculations
-│   ├── useInteractions.ts    # Drag & drop interactions
-│   └── useAdminData.ts       # Admin panel logic
-├── utils/                     # Utility functions
-│   ├── constants.ts          # Default data and types
-│   ├── api.ts               # API configuration
-│   ├── dateUtils.ts         # Date calculations
-│   └── calculations.ts      # Schengen logic
-└── app/
-    └── page.tsx             # Main page component
-```
+### Prerequisites
+- **Node.js** 18+ 
+- **pnpm** (recommended) or npm
 
-### 🔧 Custom Hooks
+### Local Development
 
-- **`useCache`**: Handles all API operations and caching logic
-- **`useData`**: Manages trip CRUD operations and location data
-- **`useCalculations`**: Computes Schengen and UK tax year statistics
-- **`useInteractions`**: Manages timeline drag-and-drop functionality
-- **`useAdminData`**: Handles admin panel data manipulation
+1. **Clone the repository**
+   \`\`\`bash
+   git clone https://github.com/mrmacsi/cruise-ship-planner.git
+   cd cruise-ship-planner
+   \`\`\`
 
-### 🛠️ Utilities
-
-- **`constants.ts`**: Centralized configuration, default data, and TypeScript types
-- **`dateUtils.ts`**: Date manipulation and sorting functions
-- **`calculations.ts`**: Complex Schengen area compliance calculations
-- **`api.ts`**: API endpoint configuration
-
-## 🎯 Benefits of Refactoring
-
-### Before (Monolithic)
-- ❌ Single 1000+ line component
-- ❌ Mixed concerns (UI, logic, calculations)
-- ❌ Difficult to test individual features
-- ❌ Hard to maintain and extend
-- ❌ No TypeScript safety
-
-### After (Modular)
-- ✅ 15+ focused, single-responsibility components
-- ✅ Clear separation of UI, logic, and data
-- ✅ Individually testable components and hooks
-- ✅ Easy to maintain and extend
-- ✅ Full TypeScript safety and IntelliSense
-- ✅ Reusable components and hooks
-- ✅ Better performance through component memoization
-
-## 🚦 Getting Started
-
-1. **Install dependencies:**
-   ```bash
+2. **Install dependencies**
+   \`\`\`bash
    pnpm install
-   ```
+   \`\`\`
 
-2. **Start development server:**
-   ```bash
+3. **Start development server**
+   \`\`\`bash
    pnpm dev
-   ```
+   \`\`\`
 
-3. **Build for production:**
-   ```bash
-   pnpm build
-   ```
+4. **Open in browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-4. **Start production server:**
-   ```bash
-   pnpm start
-   ```
+## 🏗️ Project Structure
 
-## 📊 Data Flow
+\`\`\`
+cruise-ship-planner/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── globals.css        # Global styles
+│   │   ├── layout.tsx         # Root layout
+│   │   └── page.tsx           # Home page
+│   ├── components/            # React components
+│   │   ├── admin/             # Admin panel components
+│   │   │   ├── BulkImportForm.tsx
+│   │   │   ├── CruiseAdminPage.tsx
+│   │   │   └── CruiseForm.tsx
+│   │   ├── cruise/            # Cruise-related components
+│   │   │   ├── ComparisonCard.tsx
+│   │   │   ├── CruiseCard.tsx
+│   │   │   └── CruiseComparisonPage.tsx
+│   │   ├── ui/                # Reusable UI components
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   ├── Icons.tsx
+│   │   │   └── LoadingSpinner.tsx
+│   │   └── CruiseShipPlanner.tsx  # Main app component
+│   ├── hooks/                 # Custom React hooks
+│   │   ├── useApi.ts
+│   │   └── useDebounce.ts
+│   ├── types/                 # TypeScript type definitions
+│   │   └── cruise.ts
+│   └── utils/                 # Utility functions
+│       ├── constants.ts
+│       └── cruiseUtils.ts
+├── public/                    # Static assets
+├── CruiseShipPlanner.jsx     # Original monolithic component (preserved)
+└── README.md
+\`\`\`
 
-```
-User Interaction
-       ↓
-   Main Component (CruiseShipPlanner)
-       ↓
-   Custom Hooks (useData, useCalculations)
-       ↓
-   Utility Functions (calculations, dateUtils)
-       ↓
-   API Layer (useCache)
-       ↓
-   External Cache (Redis)
-```
+## 🔧 Available Scripts
 
-## 🔍 Key Features Explained
+\`\`\`bash
+# Development
+pnpm dev          # Start development server
+pnpm build        # Build for production
+pnpm start        # Start production server
+pnpm lint         # Run ESLint
 
-### Schengen Area Compliance
-- Tracks 90-day limit within any 180-day rolling window
-- Real-time validation with visual indicators
-- City-specific calculations for multiple locations
+# Testing
+pnpm type-check   # Run TypeScript compiler check
+\`\`\`
 
-### Interactive Timeline
-- Drag to move entire trips
-- Drag edges to resize trip duration
-- Real-time sync with data table
-- Visual month/year markers
+## 🌐 Deployment
 
-### UK Tax Residency
-- Calculates days needed for each tax year
-- 90-day minimum requirement tracking
-- Automatic overlap calculations
+### Vercel (Recommended)
 
-### Admin Panel
-- Direct JSON editing of trip data
-- View all cached data
-- Instant save and refresh functionality
+1. **Install Vercel CLI**
+   \`\`\`bash
+   npm i -g vercel
+   \`\`\`
 
-## 🧪 TypeScript Integration
+2. **Deploy**
+   \`\`\`bash
+   vercel
+   \`\`\`
 
-The entire application is built with TypeScript, providing:
-- Type-safe props and state management
-- IntelliSense for better developer experience
-- Compile-time error catching
-- Better refactoring capabilities
+3. **Follow prompts** to link your project
 
-## 🎨 Styling
+### Other Platforms
+The app can be deployed on any platform that supports Next.js:
+- **Netlify**: Use \`@netlify/plugin-nextjs\`
+- **Railway**: Connect your GitHub repository
+- **AWS Amplify**: Use the Next.js build settings
 
-- **Tailwind CSS**: Utility-first CSS framework
-- **Responsive Design**: Mobile-friendly layouts
-- **Consistent Design System**: Reusable color and spacing patterns
-- **Accessibility**: ARIA labels and keyboard navigation
+## 🔌 API Integration
 
-## 🔄 State Management
+The application integrates with an external Redis cache API:
 
-Uses React's built-in state management with custom hooks:
-- Local component state for UI interactions
-- Shared state through prop drilling (lightweight approach)
-- External state persistence via API hooks
-- Automatic data synchronization
+- **Base URL**: \`https://uno-game-eta.vercel.app/api/redis-cache\`
+- **Methods**: GET (fetch), POST (create), PUT (update)
+- **Data Format**: JSON array of cruise objects
+- **Error Handling**: Network errors, 404 responses, validation errors
 
-## 📈 Performance Optimizations
+### Data Structure
+\`\`\`typescript
+interface CruiseData {
+  'Unique Sailing ID': string;
+  'Ship Name': string;
+  'Duration': string;
+  'Departure Port': string;
+  'Departure Date': string;
+  'Interior Price': string;
+  'Ocean View Price': string;
+  'Standard Balcony': string;
+  'Suite Options': string;
+  'Special Offers': string;
+  'Itinerary Map': string;
+  'Booking Link (Constructed)': string;
+  'Complete Itinerary': ItineraryStop[];
+}
+\`\`\`
 
-- Component-level code splitting
-- Efficient re-renders through proper hook dependencies
-- Memoization opportunities for calculations
-- Lazy loading of admin functionality
+## 🎯 Performance Optimizations
 
-## 🚀 Deployment
+- **Code Splitting**: Automatic route-based code splitting
+- **Image Optimization**: Next.js Image component with lazy loading
+- **Debounced Search**: 300ms debounce on search inputs
+- **Memoization**: useMemo and useCallback for expensive operations
+- **Error Boundaries**: Graceful error handling and recovery
 
-This application is deployed on **Vercel** with automatic deployments from the main branch.
+## 🔒 Security Features
 
-- **Production URL**: [https://cruise-ship-planner-xd80oc46m-codeparkuk.vercel.app](https://cruise-ship-planner-xd80oc46m-codeparkuk.vercel.app)
-- **GitHub Repository**: [https://github.com/mrmacsi/cruise-ship-planner](https://github.com/mrmacsi/cruise-ship-planner)
-- **Deployment Platform**: Vercel
-- **Build Command**: `pnpm build`
-- **Output Directory**: `.next`
+- **Input Sanitization**: XSS prevention on all user inputs
+- **URL Validation**: Proper URL validation for external links
+- **Type Safety**: Full TypeScript coverage
+- **CORS Handling**: Proper CORS configuration for API calls
 
-### Environment Variables
-No environment variables are required for basic functionality. The application uses a public Redis cache API for data persistence.
+## 🎨 Design System
 
-## 📝 Development Notes
+- **Colors**: Blue-focused palette with semantic color usage
+- **Typography**: Inter font family via Tailwind
+- **Spacing**: Consistent 4px base unit scale
+- **Shadows**: Layered shadow system for depth
+- **Animations**: Subtle hover and transition effects
 
-### ESLint Configuration
-- Extends Next.js core web vitals and TypeScript rules
-- Custom rules for unused variables and React entities
-- Automatic linting on build
+## 📱 Browser Support
 
-### Git Workflow
-- Main branch for production deployments
-- Automatic Vercel deployments on push
-- Conventional commit messages encouraged
+- **Chrome**: 88+
+- **Firefox**: 85+
+- **Safari**: 14+
+- **Edge**: 88+
 
-This refactored architecture provides a solid foundation for future enhancements while maintaining excellent developer experience and user functionality.
-# cruise-ship-planner
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (\`git checkout -b feature/amazing-feature\`)
+3. Commit your changes (\`git commit -m 'Add amazing feature'\`)
+4. Push to the branch (\`git push origin feature/amazing-feature\`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **MSC Cruises** for inspiration
+- **Vercel** for hosting and deployment
+- **Tailwind CSS** for the styling system
+- **Next.js** team for the amazing framework
+
+---
+
+**Built with ❤️ by [Your Name](https://github.com/mrmacsi)**
+
+*Happy cruising! 🚢* 

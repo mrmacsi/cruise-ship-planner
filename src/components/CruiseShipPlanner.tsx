@@ -1,137 +1,51 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
-// UI Components
-import TabNavigation from './ui/TabNavigation';
-import LoadingSpinner from './ui/LoadingSpinner';
-import StatusIndicator from './ui/StatusIndicator';
-
-// Cruise Components
-import InfoPanel from './cruise/InfoPanel';
-import DataTable from './cruise/DataTable';
-import DataForm from './cruise/DataForm';
-import Visualization from './cruise/Visualization';
-import Statistics from './cruise/Statistics';
-import Calculator from './cruise/Calculator';
-
-// Admin Components
-import AdminPanel from './admin/AdminPanel';
-import DataViewer from './admin/DataViewer';
-
-// Custom Hooks
-import { useData } from '@/hooks/useData';
-import { useCalculations } from '@/hooks/useCalculations';
-import { useInteractions } from '@/hooks/useInteractions';
-import { useAdminData } from '@/hooks/useAdminData';
+import React, { useState } from 'react';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { CruiseComparisonPage } from '@/components/cruise/CruiseComparisonPage';
+import { CruiseAdminPage } from '@/components/admin/CruiseAdminPage';
 
 export default function CruiseShipPlanner() {
-  const [activeTab, setActiveTab] = useState('planner');
-
-  // Data management
-  const {
-    trips,
-    locations,
-    loading,
-    saveStatus,
-    addTrip,
-    editTrip,
-    deleteTrip,
-    resetToDefaultTrips,
-    setTrips,
-  } = useData();
-
-  // Calculations
-  const { schengenStats, cityLimits, ukTaxYearStats } = useCalculations(trips);
-
-  // Timeline interactions
-  const {
-    draggedTrip,
-    timelineRef,
-    handleTimelineDragStart,
-    handleTimelineDrag,
-    handleTimelineDragEnd,
-  } = useInteractions(trips, setTrips);
-
-  // Admin data management
-  const {
-    adminData,
-    setAdminData,
-    allCacheData,
-    loadAllCache,
-    saveAdminData,
-  } = useAdminData();
-
-  // Load admin data when admin tab is selected
-  useEffect(() => {
-    if (activeTab === 'admin') {
-      loadAllCache();
-    }
-  }, [activeTab]);
-
-  if (loading) {
-    return <LoadingSpinner message="Loading trips from cache..." />;
-  }
+  const [page, setPage] = useState('compare');
 
   return (
-    <div className="flex flex-col p-4 max-w-full">
-      <h2 className="text-xl font-bold mb-4">Schengen Travel Planner</h2>
-      
-      {/* Tab Navigation */}
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Travel Planner Tab */}
-      {activeTab === 'planner' && (
-        <>
-          {/* Status and Reset Button */}
-          <StatusIndicator saveStatus={saveStatus} onReset={resetToDefaultTrips} />
-          
-          {/* Information Panel */}
-          <InfoPanel />
-          
-          {/* Trip Table */}
-          <DataTable 
-            trips={trips}
-            locations={locations}
-            onEditTrip={editTrip}
-            onDeleteTrip={deleteTrip}
-          />
-          
-          {/* Add Trip Form */}
-          <DataForm locations={locations} onAddTrip={addTrip} />
-          
-          {/* Timeline Visualization */}
-          <Visualization
-            trips={trips}
-            draggedTrip={draggedTrip}
-            timelineRef={timelineRef}
-            onTimelineDragStart={handleTimelineDragStart}
-            onTimelineDrag={handleTimelineDrag}
-            onTimelineDragEnd={handleTimelineDragEnd}
-          />
-          
-          {/* Statistics */}
-          <Statistics cityLimits={cityLimits} ukTaxYearStats={ukTaxYearStats} />
-          
-          {/* Schengen Day Calculator */}
-          <Calculator trips={trips} schengenStats={schengenStats} />
-        </>
-      )}
-
-      {/* Admin Tab */}
-      {activeTab === 'admin' && (
-        <div className="space-y-6">
-          <AdminPanel
-            adminData={adminData}
-            setAdminData={setAdminData}
-            onSave={saveAdminData}
-            onRefresh={loadAllCache}
-            setTrips={setTrips}
-          />
-
-          <DataViewer allCacheData={allCacheData} />
-        </div>
-      )}
-    </div>
+    <ErrorBoundary>
+      <div className="bg-gray-100 min-h-screen font-sans">
+        <nav className="bg-white shadow-md" role="navigation" aria-label="Main navigation">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="text-2xl font-bold text-blue-900">MSC Cruise Manager</div>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => setPage('compare')} 
+                  className={`px-4 py-2 rounded-lg font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    page === 'compare' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                  aria-pressed={page === 'compare'}
+                >
+                  Comparison Tool
+                </button>
+                <button 
+                  onClick={() => setPage('admin')} 
+                  className={`px-4 py-2 rounded-lg font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    page === 'admin' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                  aria-pressed={page === 'admin'}
+                >
+                  Admin Panel
+                </button>
+              </div>
+            </div>
+          </div>
+        </nav>
+        <main>
+          {page === 'compare' ? <CruiseComparisonPage /> : <CruiseAdminPage />}
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 } 
