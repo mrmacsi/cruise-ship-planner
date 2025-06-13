@@ -21,14 +21,41 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
 }) => {
   const [showItinerary, setShowItinerary] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [useNextImage, setUseNextImage] = useState(true);
 
   const priceToDisplay = useMemo(() => {
     return cruise.lowestPrice === Infinity ? 'N/A' : `from £${cruise.lowestPrice.toLocaleString()}`;
   }, [cruise.lowestPrice]);
 
+  const getImageUrl = useCallback(() => {
+    if (imageError || !cruise['Itinerary Map']) {
+      // Use a more reliable placeholder service
+      return `https://via.placeholder.com/600x400/e2e8f0/4a5568?text=${encodeURIComponent(cruise['Ship Name'] || 'Cruise Map')}`;
+    }
+    return cruise['Itinerary Map'];
+  }, [imageError, cruise]);
+
+  const PlaceholderImage = () => (
+    <div className="w-full h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+      <div className="text-center p-4">
+        <div className="text-blue-600 mb-2">
+          <svg className="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <p className="text-sm text-blue-700 font-medium">{cruise['Ship Name']}</p>
+        <p className="text-xs text-blue-600">Cruise Map</p>
+      </div>
+    </div>
+  );
+
   const handleImageError = useCallback(() => {
-    setImageError(true);
-  }, []);
+    if (useNextImage) {
+      setUseNextImage(false); // First try regular img tag
+    } else {
+      setImageError(true); // Finally use CSS placeholder
+    }
+  }, [useNextImage]);
 
   const handleCompareClick = useCallback(() => {
     if (!isComparing && !canAddToComparison) {
@@ -45,15 +72,28 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
   return (
     <article className="bg-white rounded-2xl shadow-xl overflow-hidden transform hover:-translate-y-1 transition-all duration-300 flex flex-col">
       <div className="relative">
-        <Image 
-          src={imageError ? `https://placehold.co/600x400/e2e8f0/4a5568?text=Map+Not+Available` : cruise['Itinerary Map'] || 'https://placehold.co/600x400/e2e8f0/4a5568?text=Map+Not+Available'} 
-          alt={`Itinerary map for ${cruise['Ship Name']}`}
-          className="w-full h-48 object-cover"
-          onError={handleImageError}
-          width={600}
-          height={400}
-          priority={false}
-        />
+        {imageError ? (
+          <PlaceholderImage />
+        ) : useNextImage ? (
+          <Image 
+            src={getImageUrl()} 
+            alt={`Itinerary map for ${cruise['Ship Name']}`}
+            className="w-full h-48 object-cover"
+            onError={handleImageError}
+            width={600}
+            height={400}
+            priority={false}
+            unoptimized={false}
+          />
+        ) : (
+          <img 
+            src={getImageUrl()} 
+            alt={`Itinerary map for ${cruise['Ship Name']}`}
+            className="w-full h-48 object-cover"
+            onError={handleImageError}
+            loading="lazy"
+          />
+        )}
         {cruise['Special Offers'] && cruise['Special Offers'] !== 'None' && (
           <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
             Special Offer
