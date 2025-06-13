@@ -191,16 +191,27 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
           {showItinerary && (
             <div 
               id={`itinerary-${cruise['Unique Sailing ID']}`}
-              className="text-xs text-gray-600 space-y-1 mb-3 max-h-32 overflow-y-auto pr-2"
+              className="text-xs text-gray-600 space-y-1 mb-3"
               role="region"
               aria-label="Cruise itinerary"
             >
               {itinerary.length > 0 ? (
                 itinerary.map((stop: ItineraryStop, index: number) => (
-                  <p key={index}>
-                    <strong>Day {stop.day}:</strong> {stop.port}
-                    {stop.arrival && stop.arrival !== '-' && ` (${stop.arrival})`}
-                  </p>
+                  <div key={index} className="border-l-2 border-blue-200 pl-2 py-1">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">Day {stop.day}: {stop.port}</p>
+                      </div>
+                      <div className="text-right text-xs text-gray-500 ml-2">
+                        {stop.arrival && stop.arrival !== '-' && (
+                          <div>Arr: {stop.arrival}</div>
+                        )}
+                        {stop.departure && stop.departure !== '-' && (
+                          <div>Dep: {stop.departure}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 ))
               ) : (
                 <p className="text-gray-400 italic">No itinerary details available</p>

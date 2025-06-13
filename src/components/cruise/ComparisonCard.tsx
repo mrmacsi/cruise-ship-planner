@@ -162,13 +162,19 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
             {itinerary.length > 0 ? (
               itinerary.map((stop: ItineraryStop, index: number) => (
                 <div key={index} className="border-l-2 border-blue-200 pl-2 py-1">
-                  <p className="font-medium text-gray-800">Day {stop.day}: {stop.port}</p>
-                  {stop.arrival && stop.arrival !== '-' && (
-                    <p className="text-gray-500">Arrives: {stop.arrival}</p>
-                  )}
-                  {stop.departure && stop.departure !== '-' && (
-                    <p className="text-gray-500">Departs: {stop.departure}</p>
-                  )}
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800">Day {stop.day}: {stop.port}</p>
+                    </div>
+                    <div className="text-right text-xs text-gray-500 ml-2">
+                      {stop.arrival && stop.arrival !== '-' && (
+                        <div>Arr: {stop.arrival}</div>
+                      )}
+                      {stop.departure && stop.departure !== '-' && (
+                        <div>Dep: {stop.departure}</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))
             ) : (
