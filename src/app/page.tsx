@@ -1,6 +1,6 @@
 'use client'
 
-import CruiseShipPlanner from '@/components/CruiseShipPlanner'
+import CruiseShipPlanner from '../../CruiseShipPlanner'
 
 export default function Home() {
   return <CruiseShipPlanner />
