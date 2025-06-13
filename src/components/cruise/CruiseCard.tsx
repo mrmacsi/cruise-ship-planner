@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { ProcessedCruise, ItineraryStop } from '@/types/cruise';
 import { CalendarIcon, MapPinIcon, PoundIcon } from '@/components/ui/Icons';
 import { MAX_COMPARISON_ITEMS } from '@/utils/constants';
@@ -44,12 +45,14 @@ export const CruiseCard: React.FC<CruiseCardProps> = ({
   return (
     <article className="bg-white rounded-2xl shadow-xl overflow-hidden transform hover:-translate-y-1 transition-all duration-300 flex flex-col">
       <div className="relative">
-        <img 
-          src={imageError ? `https://placehold.co/600x400/e2e8f0/4a5568?text=Map+Not+Available` : cruise['Itinerary Map']} 
+        <Image 
+          src={imageError ? `https://placehold.co/600x400/e2e8f0/4a5568?text=Map+Not+Available` : cruise['Itinerary Map'] || 'https://placehold.co/600x400/e2e8f0/4a5568?text=Map+Not+Available'} 
           alt={`Itinerary map for ${cruise['Ship Name']}`}
           className="w-full h-48 object-cover"
           onError={handleImageError}
-          loading="lazy"
+          width={600}
+          height={400}
+          priority={false}
         />
         {cruise['Special Offers'] && cruise['Special Offers'] !== 'None' && (
           <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">

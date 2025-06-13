@@ -111,20 +111,20 @@ export const CruiseAdminPage: React.FC = () => {
     }
   }, [apiCall, isKeyInCache]);
 
-  const handleAdd = useCallback((newCruise: CruiseData) => {
+  const handleAdd = useCallback(async (newCruise: CruiseData) => {
     const cruiseWithId = { 
       ...newCruise, 
       "Unique Sailing ID": `cruise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` 
     };
     const updatedCruises = [...cruises, cruiseWithId];
-    handleSaveCruises(updatedCruises);
+    await handleSaveCruises(updatedCruises);
   }, [cruises, handleSaveCruises]);
 
-  const handleEdit = useCallback((updatedCruise: CruiseData) => {
+  const handleEdit = useCallback(async (updatedCruise: CruiseData) => {
     const updatedCruises = cruises.map(c => 
       c['Unique Sailing ID'] === updatedCruise['Unique Sailing ID'] ? updatedCruise : c
     );
-    handleSaveCruises(updatedCruises);
+    await handleSaveCruises(updatedCruises);
   }, [cruises, handleSaveCruises]);
 
   const handleDelete = useCallback((sailingId: string) => {
