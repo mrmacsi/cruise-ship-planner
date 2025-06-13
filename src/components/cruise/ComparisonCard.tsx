@@ -215,13 +215,15 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({
         </button>
 
         {showNotes && (
-          <textarea
-            value={notes}
-            onChange={handleNotesChange}
-            placeholder="Add your personal notes about this cruise..."
-            className="w-full p-2 border border-gray-300 rounded-md text-xs resize-y focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[60px] max-h-[200px]"
-            rows={3}
-          />
+          <div className="mt-3">
+            <textarea
+              value={notes}
+              onChange={handleNotesChange}
+              placeholder="Add your notes about this cruise..."
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[120px] max-h-[400px] text-sm"
+              rows={5}
+            />
+          </div>
         )}
         
         {!showNotes && notes && (

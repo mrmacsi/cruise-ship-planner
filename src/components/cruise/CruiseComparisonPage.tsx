@@ -18,6 +18,18 @@ interface CruiseComparisonPageProps {
   onDeleteAfterSep4Ready?: (deleteCallback: () => Promise<void>) => void;
 }
 
+// localStorage keys
+const STORAGE_KEYS = {
+  COMPARISON_LIST: 'cruise_comparison_list',
+  SELECTED_SHIPS: 'cruise_selected_ships',
+  MAX_BUDGET: 'cruise_max_budget',
+  DEPARTURE_DATE: 'cruise_departure_date',
+  ARRIVAL_DATE: 'cruise_arrival_date',
+  SELECTED_CITIES: 'cruise_selected_cities',
+  ITINERARY_QUERIES: 'cruise_itinerary_queries',
+  ROOM_TYPE_FILTERS: 'cruise_room_type_filters'
+};
+
 export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({ 
   allNotesOpen = true,
   onEditCruise,
@@ -40,6 +52,64 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
   
   const debouncedMaxBudget = useDebounce(maxBudget, 300);
   const debouncedNotes = useDebounce(notes, 1000);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedComparisonList = localStorage.getItem(STORAGE_KEYS.COMPARISON_LIST);
+      const savedSelectedShips = localStorage.getItem(STORAGE_KEYS.SELECTED_SHIPS);
+      const savedMaxBudget = localStorage.getItem(STORAGE_KEYS.MAX_BUDGET);
+      const savedDepartureDate = localStorage.getItem(STORAGE_KEYS.DEPARTURE_DATE);
+      const savedArrivalDate = localStorage.getItem(STORAGE_KEYS.ARRIVAL_DATE);
+      const savedSelectedCities = localStorage.getItem(STORAGE_KEYS.SELECTED_CITIES);
+      const savedItineraryQueries = localStorage.getItem(STORAGE_KEYS.ITINERARY_QUERIES);
+      const savedRoomTypeFilters = localStorage.getItem(STORAGE_KEYS.ROOM_TYPE_FILTERS);
+
+      if (savedComparisonList) setComparisonList(JSON.parse(savedComparisonList));
+      if (savedSelectedShips) setSelectedShips(JSON.parse(savedSelectedShips));
+      if (savedMaxBudget) setMaxBudget(savedMaxBudget);
+      if (savedDepartureDate) setDepartureDate(savedDepartureDate);
+      if (savedArrivalDate) setArrivalDate(savedArrivalDate);
+      if (savedSelectedCities) setSelectedCities(JSON.parse(savedSelectedCities));
+      if (savedItineraryQueries) setItineraryQueries(JSON.parse(savedItineraryQueries));
+      if (savedRoomTypeFilters) setRoomTypeFilters(JSON.parse(savedRoomTypeFilters));
+    } catch (error) {
+      console.warn('Error loading from localStorage:', error);
+    }
+  }, []);
+
+  // Save to localStorage when state changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.COMPARISON_LIST, JSON.stringify(comparisonList));
+  }, [comparisonList]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_SHIPS, JSON.stringify(selectedShips));
+  }, [selectedShips]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.MAX_BUDGET, maxBudget);
+  }, [maxBudget]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.DEPARTURE_DATE, departureDate);
+  }, [departureDate]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ARRIVAL_DATE, arrivalDate);
+  }, [arrivalDate]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_CITIES, JSON.stringify(selectedCities));
+  }, [selectedCities]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ITINERARY_QUERIES, JSON.stringify(itineraryQueries));
+  }, [itineraryQueries]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ROOM_TYPE_FILTERS, JSON.stringify(roomTypeFilters));
+  }, [roomTypeFilters]);
 
   const fetchCruises = useCallback(async () => {
     try {
@@ -345,6 +415,11 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     setSelectedCities([]);
     setItineraryQueries([]);
     setRoomTypeFilters([]);
+    
+    // Clear localStorage
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
   }, []);
 
   const handleBudgetChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -362,29 +437,25 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
   }, []);
 
   const handleDelete = useCallback(async (sailingId: string) => {
-    const cruiseToDelete = allCruises.find(c => c['Unique Sailing ID'] === sailingId);
-    const confirmMessage = `Are you sure you want to delete "${cruiseToDelete?.['Ship Name'] || 'this cruise'}"? This action cannot be undone.`;
-    
-    if (window.confirm(confirmMessage)) {
-      try {
-        const updatedCruises = allCruises.filter(c => c['Unique Sailing ID'] !== sailingId);
-        
-        await apiCall(API_BASE_URL, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            key: API_KEY, 
-            data: updatedCruises, 
-            ttl: null 
-          }),
-        });
+    try {
+      const updatedCruises = allCruises.filter(c => c['Unique Sailing ID'] !== sailingId);
+      
+      // Direct delete without loading screen
+      await fetch(API_BASE_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          key: API_KEY, 
+          data: updatedCruises, 
+          ttl: null 
+        }),
+      });
 
-        setAllCruises(updatedCruises);
-      } catch (error) {
-        console.error('Delete failed:', error);
-      }
+      setAllCruises(updatedCruises);
+    } catch (error) {
+      console.error('Delete failed:', error);
     }
-  }, [allCruises, apiCall]);
+  }, [allCruises]);
 
   const handleDeleteAfterSeptember4 = useCallback(async () => {
     const september4 = new Date('2024-09-04');
@@ -400,33 +471,30 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
       return;
     }
 
-    const confirmMessage = `Are you sure you want to delete ${cruisesToDelete.length} cruises departing after September 4, 2024? This action cannot be undone.\n\nCruises to be deleted:\n${cruisesToDelete.slice(0, 5).map(c => `- ${c['Ship Name']} (${c['Departure Date']})`).join('\n')}${cruisesToDelete.length > 5 ? `\n... and ${cruisesToDelete.length - 5} more` : ''}`;
-    
-    if (window.confirm(confirmMessage)) {
-      try {
-        const updatedCruises = allCruises.filter(cruise => {
-          const departureDate = parseDepartureDate(cruise['Departure Date']);
-          return !departureDate || departureDate <= september4;
-        });
-        
-        await apiCall(API_BASE_URL, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            key: API_KEY, 
-            data: updatedCruises, 
-            ttl: null 
-          }),
-        });
+    try {
+      const updatedCruises = allCruises.filter(cruise => {
+        const departureDate = parseDepartureDate(cruise['Departure Date']);
+        return !departureDate || departureDate <= september4;
+      });
+      
+      // Direct delete without loading screen
+      await fetch(API_BASE_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          key: API_KEY, 
+          data: updatedCruises, 
+          ttl: null 
+        }),
+      });
 
-        setAllCruises(updatedCruises);
-        alert(`Successfully deleted ${cruisesToDelete.length} cruises`);
-      } catch (error) {
-        console.error('Delete failed:', error);
-        alert('Failed to delete cruises');
-      }
+      setAllCruises(updatedCruises);
+      alert(`Successfully deleted ${cruisesToDelete.length} cruises`);
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete cruises');
     }
-  }, [allCruises, apiCall]);
+  }, [allCruises]);
 
   const handleOpenEditForm = useCallback((cruise: CruiseData) => {
     if (onEditCruise) {
@@ -499,15 +567,6 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto p-4 md:p-8">
-        <header className="mb-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-blue-900 mb-2">
-            Cruise Comparison Tool
-          </h1>
-          <p className="text-lg text-gray-600">
-            Find and compare your perfect MSC cruise vacation.
-          </p>
-        </header>
-
         <section className="bg-white p-4 rounded-xl shadow-lg mb-6" aria-labelledby="filter-heading">
           <h2 id="filter-heading" className="text-xl font-semibold mb-3 text-blue-800">
             Filter Options
