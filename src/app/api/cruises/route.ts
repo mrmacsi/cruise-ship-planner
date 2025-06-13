@@ -63,14 +63,25 @@ export async function GET() {
   }
 }
 
-// POST - Save cruises data
+// POST - Save cruises data (create new or update existing)
 export async function POST(request: NextRequest) {
+  return await saveOrUpdateCruises(request, 'POST');
+}
+
+// PUT - Update cruises data (create new or update existing)  
+export async function PUT(request: NextRequest) {
+  return await saveOrUpdateCruises(request, 'PUT');
+}
+
+// Helper function to handle both POST and PUT with fallback logic
+async function saveOrUpdateCruises(request: NextRequest, preferredMethod: 'POST' | 'PUT') {
   try {
     const body = await request.json();
-    console.log('Saving cruises to external API...');
+    console.log(`Saving cruises to external API using ${preferredMethod}...`);
     
-    const response = await fetch(API_BASE_URL, {
-      method: 'POST',
+    // First, try the preferred method
+    let response = await fetch(API_BASE_URL, {
+      method: preferredMethod,
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -80,13 +91,49 @@ export async function POST(request: NextRequest) {
         data: body.data,
         ttl: body.ttl || null,
       }),
-      // Add timeout
-      signal: AbortSignal.timeout(15000), // 15 second timeout for saves
+      signal: AbortSignal.timeout(15000),
     });
 
+    // If we get 404 on PUT (key doesn't exist), try POST
+    if (!response.ok && response.status === 404 && preferredMethod === 'PUT') {
+      console.log('Key not found for PUT, trying POST instead...');
+      response = await fetch(API_BASE_URL, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: API_KEY,
+          data: body.data,
+          ttl: body.ttl || null,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+    }
+    
+    // If we get 409 on POST (key exists), try PUT
+    if (!response.ok && response.status === 409 && preferredMethod === 'POST') {
+      console.log('Key already exists for POST, trying PUT instead...');
+      response = await fetch(API_BASE_URL, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: API_KEY,
+          data: body.data,
+          ttl: body.ttl || null,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+    }
+
     if (!response.ok) {
-      console.error('External API POST error:', response.status, response.statusText);
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      console.error('External API error:', response.status, response.statusText);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -109,56 +156,6 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       { error: errorMessage || 'Failed to save cruises' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT - Update cruises data  
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    console.log('Updating cruises in external API...');
-    
-    const response = await fetch(API_BASE_URL, {
-      method: 'PUT',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        key: API_KEY,
-        data: body.data,
-        ttl: body.ttl || null,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!response.ok) {
-      console.error('External API PUT error:', response.status, response.statusText);
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('Successfully updated cruises data');
-    
-    return NextResponse.json(data);
-    
-  } catch (error) {
-    console.error('Cruise update API error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorName = error instanceof Error ? error.name : '';
-    
-    if (errorName === 'TimeoutError' || errorMessage.includes('timeout')) {
-      return NextResponse.json(
-        { error: 'Update timeout - external service is slow' },
-        { status: 408 }
-      );
-    }
-    
-    return NextResponse.json(
-      { error: errorMessage || 'Failed to update cruises' },
       { status: 500 }
     );
   }
