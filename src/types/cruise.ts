@@ -20,6 +20,7 @@ export interface CruiseData {
   'Itinerary Map': string;
   'Booking Link (Constructed)': string;
   'Complete Itinerary': ItineraryStop[];
+  'User Notes'?: string;
   lowestPrice?: number;
   departureDateObj?: Date | null;
 }

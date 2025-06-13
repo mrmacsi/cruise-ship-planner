@@ -8,6 +8,8 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PlusIcon, EditIcon, TrashIcon } from '@/components/ui/Icons';
 import { CruiseForm } from '@/components/admin/CruiseForm';
 import { BulkImportForm } from '@/components/admin/BulkImportForm';
+import { CruiseCard } from '@/components/cruise/CruiseCard';
+import { parsePrice, parseDepartureDate } from '@/utils/cruiseUtils';
 
 export const CruiseAdminPage: React.FC = () => {
   const [cruises, setCruises] = useState<CruiseData[]>([]);
@@ -150,6 +152,38 @@ export const CruiseAdminPage: React.FC = () => {
     setShowForm(true);
   }, []);
 
+  const handleNotesChange = useCallback(async (sailingId: string, notes: string) => {
+    // Update local state immediately
+    setCruises(prev => prev.map(cruise => 
+      cruise['Unique Sailing ID'] === sailingId 
+        ? { ...cruise, 'User Notes': notes }
+        : cruise
+    ));
+
+    // Save to API
+    try {
+      const updatedCruises = cruises.map(cruise => 
+        cruise['Unique Sailing ID'] === sailingId 
+          ? { ...cruise, 'User Notes': notes }
+          : cruise
+      );
+      
+      await handleSaveCruises(updatedCruises);
+    } catch (error) {
+      console.error('Failed to save notes:', error);
+    }
+  }, [cruises, handleSaveCruises]);
+
+  const processedCruises = cruises.map(cruise => ({
+    ...cruise,
+    lowestPrice: Math.min(
+      parsePrice(cruise['Interior Price']),
+      parsePrice(cruise['Ocean View Price']),
+      parsePrice(cruise['Standard Balcony'])
+    ),
+    departureDateObj: parseDepartureDate(cruise['Departure Date'])
+  }));
+
   return (
     <div className="container mx-auto p-4 md:p-8">
       <header className="mb-8 text-center">
@@ -200,39 +234,19 @@ export const CruiseAdminPage: React.FC = () => {
           </div>
         )}
 
-        <div className="space-y-3">
-          {cruises.map(cruise => (
-            <div 
-              key={cruise['Unique Sailing ID']} 
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex-grow min-w-0">
-                <p className="font-bold text-lg text-gray-800 truncate">
-                  {cruise['Ship Name'] || 'Unnamed Ship'}
-                </p>
-                <p className="text-sm text-gray-600 truncate">
-                  {cruise['Departure Date'] || 'No date'} | {cruise['Departure Port'] || 'No port'}
-                </p>
-              </div>
-              <div className="flex items-center space-x-3 ml-4">
-                <button 
-                  onClick={() => handleOpenEditForm(cruise)} 
-                  className="text-blue-500 hover:text-blue-700 p-2 rounded-full bg-blue-100 hover:bg-blue-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  aria-label={`Edit ${cruise['Ship Name'] || 'cruise'}`}
-                  disabled={isLoading}
-                >
-                  <EditIcon />
-                </button>
-                <button 
-                  onClick={() => handleDelete(cruise['Unique Sailing ID'])} 
-                  className="text-red-500 hover:text-red-700 p-2 rounded-full bg-red-100 hover:bg-red-200 transition focus:outline-none focus:ring-2 focus:ring-red-500"
-                  aria-label={`Delete ${cruise['Ship Name'] || 'cruise'}`}
-                  disabled={isLoading}
-                >
-                  <TrashIcon />
-                </button>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {processedCruises.map(cruise => (
+            <CruiseCard
+              key={cruise['Unique Sailing ID']}
+              cruise={cruise}
+              onCompareToggle={() => {}} // No comparison in admin
+              isComparing={false}
+              canAddToComparison={false}
+              onEdit={handleOpenEditForm}
+              onDelete={handleDelete}
+              onNotesChange={handleNotesChange}
+              showAdminButtons={true}
+            />
           ))}
         </div>
       </section>

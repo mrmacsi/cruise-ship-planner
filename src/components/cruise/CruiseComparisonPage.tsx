@@ -4,8 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CruiseData, ProcessedCruise } from '@/types/cruise';
 import { useApi } from '@/hooks/useApi';
 import { useDebounce } from '@/hooks/useDebounce';
-import { parsePrice, parseDepartureDate, sanitizeInput } from '@/utils/cruiseUtils';
-import { API_BASE_URL, API_KEY, MAX_COMPARISON_ITEMS, MIN_BUDGET_VALUE, MAX_BUDGET_VALUE } from '@/utils/constants';
+import { parsePrice, parseDepartureDate, parseArrivalDate, getAvailableDates, getAvailableCities, sanitizeInput } from '@/utils/cruiseUtils';
+import { API_BASE_URL, API_KEY, MIN_BUDGET_VALUE, MAX_BUDGET_VALUE } from '@/utils/constants';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { CruiseCard } from '@/components/cruise/CruiseCard';
 import { ComparisonCard } from '@/components/cruise/ComparisonCard';
@@ -16,7 +16,10 @@ export const CruiseComparisonPage: React.FC = () => {
   const [selectedShip, setSelectedShip] = useState('');
   const [maxBudget, setMaxBudget] = useState('');
   const [departureDate, setDepartureDate] = useState('');
+  const [arrivalDate, setArrivalDate] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
   const [itineraryQuery, setItineraryQuery] = useState('');
+  const [roomTypeFilter, setRoomTypeFilter] = useState('');
 
   const { apiCall, isLoading, error } = useApi();
   
@@ -86,9 +89,39 @@ export const CruiseComparisonPage: React.FC = () => {
           if (!c.departureDateObj) return false;
           const cruiseDate = new Date(c.departureDateObj);
           cruiseDate.setUTCHours(0, 0, 0, 0);
-          return cruiseDate.getTime() === filterDate.getTime();
+          return cruiseDate.getTime() >= filterDate.getTime();
         });
       }
+    }
+
+    if (arrivalDate) {
+      const filterDate = new Date(arrivalDate);
+      if (!isNaN(filterDate.getTime())) {
+        filterDate.setUTCHours(23, 59, 59, 999);
+        result = result.filter(c => {
+          const arrivalDateObj = parseArrivalDate(c['Departure Date']);
+          if (!arrivalDateObj) return false;
+          const cruiseArrivalDate = new Date(arrivalDateObj);
+          cruiseArrivalDate.setUTCHours(23, 59, 59, 999);
+          return cruiseArrivalDate.getTime() <= filterDate.getTime();
+        });
+      }
+    }
+
+    if (selectedCity) {
+      result = result.filter(c => {
+        // Check departure port
+        if (c['Departure Port'] && c['Departure Port'].toLowerCase().includes(selectedCity.toLowerCase())) {
+          return true;
+        }
+        // Check itinerary
+        if (Array.isArray(c['Complete Itinerary'])) {
+          return c['Complete Itinerary'].some(stop => 
+            stop?.port?.toLowerCase().includes(selectedCity.toLowerCase())
+          );
+        }
+        return false;
+      });
     }
 
     if (debouncedItineraryQuery) {
@@ -111,10 +144,43 @@ export const CruiseComparisonPage: React.FC = () => {
     return names.sort();
   }, [processedCruises]);
 
+  const availableDates = useMemo(() => {
+    return getAvailableDates(processedCruises);
+  }, [processedCruises]);
+
+  const availableCities = useMemo(() => {
+    return getAvailableCities(processedCruises);
+  }, [processedCruises]);
+
   const cruisesToCompare = useMemo(() => {
-    return allCruises.filter(cruise => 
+    const filtered = allCruises.filter(cruise => 
       comparisonList.includes(cruise['Unique Sailing ID'])
     );
+    
+    // Sort by departure date first, then by lowest price
+    return filtered.sort((a, b) => {
+      const dateA = parseDepartureDate(a['Departure Date']);
+      const dateB = parseDepartureDate(b['Departure Date']);
+      
+      if (dateA && dateB) {
+        const dateDiff = dateA.getTime() - dateB.getTime();
+        if (dateDiff !== 0) return dateDiff;
+      }
+      
+      // If dates are equal or missing, sort by price
+      const priceA = Math.min(
+        parsePrice(a['Interior Price']),
+        parsePrice(a['Ocean View Price']),
+        parsePrice(a['Standard Balcony'])
+      );
+      const priceB = Math.min(
+        parsePrice(b['Interior Price']),
+        parsePrice(b['Ocean View Price']),
+        parsePrice(b['Standard Balcony'])
+      );
+      
+      return priceA - priceB;
+    });
   }, [comparisonList, allCruises]);
 
   const handleToggleCompare = useCallback((sailingId: string) => {
@@ -122,7 +188,7 @@ export const CruiseComparisonPage: React.FC = () => {
       if (prev.includes(sailingId)) {
         return prev.filter(id => id !== sailingId);
       }
-      return prev.length < MAX_COMPARISON_ITEMS ? [...prev, sailingId] : prev;
+      return [...prev, sailingId];
     });
   }, []);
 
@@ -130,7 +196,10 @@ export const CruiseComparisonPage: React.FC = () => {
     setSelectedShip('');
     setMaxBudget('');
     setDepartureDate('');
+    setArrivalDate('');
+    setSelectedCity('');
     setItineraryQuery('');
+    setRoomTypeFilter('');
   }, []);
 
   const handleBudgetChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,6 +208,37 @@ export const CruiseComparisonPage: React.FC = () => {
       setMaxBudget(value);
     }
   }, []);
+
+  const handleNotesChange = useCallback(async (sailingId: string, notes: string) => {
+    // Update local state immediately
+    setAllCruises(prev => prev.map(cruise => 
+      cruise['Unique Sailing ID'] === sailingId 
+        ? { ...cruise, 'User Notes': notes }
+        : cruise
+    ));
+
+    // Save to API
+    try {
+      const updatedCruises = allCruises.map(cruise => 
+        cruise['Unique Sailing ID'] === sailingId 
+          ? { ...cruise, 'User Notes': notes }
+          : cruise
+      );
+      
+      await apiCall(API_BASE_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          key: API_KEY, 
+          data: updatedCruises, 
+          ttl: null 
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to save notes:', error);
+      // Optionally show user feedback about save failure
+    }
+  }, [allCruises, apiCall]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -156,7 +256,7 @@ export const CruiseComparisonPage: React.FC = () => {
           <h2 id="filter-heading" className="text-2xl font-semibold mb-4 text-blue-800">
             Filter Options
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <div className="flex flex-col">
               <label htmlFor="ship-select" className="mb-1 font-medium text-gray-700">
                 Ship Name
@@ -199,19 +299,57 @@ export const CruiseComparisonPage: React.FC = () => {
             </div>
 
             <div className="flex flex-col">
-              <label htmlFor="date-input" className="mb-1 font-medium text-gray-700">
-                Departure Date
+              <label htmlFor="departure-date-input" className="mb-1 font-medium text-gray-700">
+                Departure From
               </label>
               <input 
-                id="date-input" 
+                id="departure-date-input" 
                 type="date" 
                 value={departureDate} 
                 onChange={(e) => setDepartureDate(e.target.value)} 
                 className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                aria-describedby="date-input-desc"
+                aria-describedby="departure-date-input-desc"
               />
-              <span id="date-input-desc" className="sr-only">
-                Select specific departure date
+              <span id="departure-date-input-desc" className="sr-only">
+                Select earliest departure date
+              </span>
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="arrival-date-input" className="mb-1 font-medium text-gray-700">
+                Arrival By
+              </label>
+              <input 
+                id="arrival-date-input" 
+                type="date" 
+                value={arrivalDate} 
+                onChange={(e) => setArrivalDate(e.target.value)} 
+                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-describedby="arrival-date-input-desc"
+              />
+              <span id="arrival-date-input-desc" className="sr-only">
+                Select latest arrival date
+              </span>
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="city-select" className="mb-1 font-medium text-gray-700">
+                City/Port
+              </label>
+              <select 
+                id="city-select" 
+                value={selectedCity} 
+                onChange={(e) => setSelectedCity(e.target.value)} 
+                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-describedby="city-select-desc"
+              >
+                <option value="">All Cities</option>
+                {availableCities.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+              <span id="city-select-desc" className="sr-only">
+                Select a specific city or port
               </span>
             </div>
 
@@ -233,29 +371,52 @@ export const CruiseComparisonPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-end">
-              <button 
-                onClick={handleResetFilters} 
-                className="w-full bg-red-500 text-white p-3 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
-                aria-label="Clear all filters"
+            <div className="flex flex-col">
+              <label htmlFor="room-type-select" className="mb-1 font-medium text-gray-700">
+                Room Type
+              </label>
+              <select 
+                id="room-type-select" 
+                value={roomTypeFilter} 
+                onChange={(e) => setRoomTypeFilter(e.target.value)} 
+                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-describedby="room-type-select-desc"
               >
-                Reset Filters
-              </button>
+                <option value="">All Room Types</option>
+                <option value="Interior">Interior</option>
+                <option value="Ocean View">Ocean View</option>
+                <option value="Balcony">Balcony</option>
+                <option value="Suite">Suite</option>
+              </select>
+              <span id="room-type-select-desc" className="sr-only">
+                Filter by specific room type for comparison
+              </span>
             </div>
+
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button 
+              onClick={handleResetFilters} 
+              className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
+              aria-label="Clear all filters"
+            >
+              Reset All Filters
+            </button>
           </div>
         </section>
 
         {cruisesToCompare.length > 0 && (
           <section className="mb-8" aria-labelledby="comparison-heading">
             <h2 id="comparison-heading" className="text-3xl font-bold text-center mb-6 text-blue-800">
-              Comparison ({cruisesToCompare.length}/{MAX_COMPARISON_ITEMS})
+              Comparison ({cruisesToCompare.length} cruises)
             </h2>
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${cruisesToCompare.length > 2 ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${cruisesToCompare.length > 2 ? 'lg:grid-cols-3 xl:grid-cols-4' : 'lg:grid-cols-2'} gap-4`}>
               {cruisesToCompare.map(cruise => (
                 <ComparisonCard 
                   key={cruise['Unique Sailing ID']} 
                   cruise={cruise} 
                   onRemove={() => handleToggleCompare(cruise['Unique Sailing ID'])} 
+                  roomTypeFilter={roomTypeFilter}
                 />
               ))}
             </div>
@@ -291,7 +452,8 @@ export const CruiseComparisonPage: React.FC = () => {
                   cruise={cruise} 
                   onCompareToggle={handleToggleCompare} 
                   isComparing={comparisonList.includes(cruise['Unique Sailing ID'])}
-                  canAddToComparison={comparisonList.length < MAX_COMPARISON_ITEMS}
+                  canAddToComparison={true}
+                  onNotesChange={handleNotesChange}
                 />
               ))}
             </div>

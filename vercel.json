@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/cruises/route.ts": {
+      "maxDuration": 30
+    }
+  }
+} 
