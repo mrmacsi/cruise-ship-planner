@@ -7,7 +7,15 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['placehold.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+    ],
+  },
+  experimental: {
+    forceSwcTransforms: true,
   },
 }
 
