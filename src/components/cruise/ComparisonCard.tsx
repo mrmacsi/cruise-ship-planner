@@ -44,6 +44,26 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
     return baseClass;
   }, [isPriceLowest]);
 
+  const getCheapestBadges = useCallback(() => {
+    const badges = [];
+    if (isPriceLowest(cruise['Interior Price'], 'interior')) {
+      badges.push({ type: 'Interior', color: 'bg-green-500' });
+    }
+    if (isPriceLowest(cruise['Ocean View Price'], 'oceanView')) {
+      badges.push({ type: 'Ocean View', color: 'bg-blue-500' });
+    }
+    if (isPriceLowest(cruise['Standard Balcony'], 'balcony')) {
+      badges.push({ type: 'Balcony', color: 'bg-purple-500' });
+    }
+    if (isPriceLowest(cruise['Suite Price'], 'suite')) {
+      badges.push({ type: 'Suite', color: 'bg-yellow-500' });
+    }
+    if (isPriceLowest(cruise['Yacht Club Price'], 'yachtClub')) {
+      badges.push({ type: 'Yacht Club', color: 'bg-red-500' });
+    }
+    return badges;
+  }, [cruise, isPriceLowest]);
+
   const handleImageError = useCallback(() => {
     setImageError(true);
   }, []);
@@ -64,6 +84,7 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
   }, [cruise, roomTypeFilter, formatPrice]);
 
   const itinerary = Array.isArray(cruise['Complete Itinerary']) ? cruise['Complete Itinerary'] : [];
+  const cheapestBadges = getCheapestBadges();
 
   const PlaceholderImage = () => (
     <div className="w-full h-32 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
@@ -91,8 +112,8 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
         </button>
       </div>
 
-      {/* Route Image */}
-      <div className="mb-3">
+      {/* Route Image with Badges */}
+      <div className="mb-3 relative">
         {imageError || !cruise['Itinerary Map'] ? (
           <PlaceholderImage />
         ) : (
@@ -107,9 +128,20 @@ export const ComparisonCard: React.FC<ComparisonCardProps> = ({ cruise, onRemove
               priority={false}
               unoptimized={true}
             />
-            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-              Route Map
-            </div>
+          </div>
+        )}
+        
+        {/* Cheapest Price Badges */}
+        {cheapestBadges.length > 0 && (
+          <div className="absolute top-1 left-1 flex flex-wrap gap-1">
+            {cheapestBadges.map((badge, index) => (
+              <span 
+                key={index}
+                className={`${badge.color} text-white text-xs px-2 py-1 rounded-full font-semibold shadow-md`}
+              >
+                Best {badge.type}
+              </span>
+            ))}
           </div>
         )}
       </div>

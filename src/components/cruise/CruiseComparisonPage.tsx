@@ -388,6 +388,8 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
 
   const handleDeleteAfterSeptember4 = useCallback(async () => {
     const september4 = new Date('2024-09-04');
+    september4.setHours(23, 59, 59, 999); // Set to end of day for proper comparison
+    
     const cruisesToDelete = allCruises.filter(cruise => {
       const departureDate = parseDepartureDate(cruise['Departure Date']);
       return departureDate && departureDate > september4;
@@ -398,7 +400,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
       return;
     }
 
-    const confirmMessage = `Are you sure you want to delete ${cruisesToDelete.length} cruises departing after September 4, 2024? This action cannot be undone.`;
+    const confirmMessage = `Are you sure you want to delete ${cruisesToDelete.length} cruises departing after September 4, 2024? This action cannot be undone.\n\nCruises to be deleted:\n${cruisesToDelete.slice(0, 5).map(c => `- ${c['Ship Name']} (${c['Departure Date']})`).join('\n')}${cruisesToDelete.length > 5 ? `\n... and ${cruisesToDelete.length - 5} more` : ''}`;
     
     if (window.confirm(confirmMessage)) {
       try {
@@ -506,11 +508,11 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
           </p>
         </header>
 
-        <section className="bg-white p-6 rounded-2xl shadow-lg mb-8" aria-labelledby="filter-heading">
-          <h2 id="filter-heading" className="text-2xl font-semibold mb-4 text-blue-800">
+        <section className="bg-white p-4 rounded-xl shadow-lg mb-6" aria-labelledby="filter-heading">
+          <h2 id="filter-heading" className="text-xl font-semibold mb-3 text-blue-800">
             Filter Options
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             <div className="flex flex-col">
               <label htmlFor="ship-select" className="mb-1 font-medium text-gray-700">
                 Ship Name
@@ -519,7 +521,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 id="ship-select" 
                 value="" 
                 onChange={handleShipSelect} 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="ship-select-desc"
               >
                 <option value="">Select ships...</option>
@@ -528,13 +530,13 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 ))}
               </select>
               {selectedShips.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-1 flex flex-wrap gap-1">
                   {selectedShips.map(ship => (
-                    <span key={ship} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs flex items-center">
+                    <span key={ship} className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs flex items-center">
                       {ship}
                       <button 
                         onClick={() => setSelectedShips(prev => prev.filter(s => s !== ship))}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
+                        className="ml-1 text-blue-600 hover:text-blue-800 text-sm"
                       >
                         ×
                       </button>
@@ -559,7 +561,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 value={maxBudget} 
                 onChange={handleBudgetChange} 
                 placeholder="e.g., 1500" 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="budget-input-desc"
               />
               <span id="budget-input-desc" className="sr-only">
@@ -576,7 +578,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 type="date" 
                 value={departureDate} 
                 onChange={(e) => setDepartureDate(e.target.value)} 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="departure-date-input-desc"
               />
               <span id="departure-date-input-desc" className="sr-only">
@@ -593,7 +595,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 type="date" 
                 value={arrivalDate} 
                 onChange={(e) => setArrivalDate(e.target.value)} 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="arrival-date-input-desc"
               />
               <span id="arrival-date-input-desc" className="sr-only">
@@ -609,7 +611,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 id="city-select" 
                 value="" 
                 onChange={handleCitySelect} 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="city-select-desc"
               >
                 <option value="">Select cities...</option>
@@ -618,13 +620,13 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 ))}
               </select>
               {selectedCities.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-1 flex flex-wrap gap-1">
                   {selectedCities.map(city => (
-                    <span key={city} className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs flex items-center">
+                    <span key={city} className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs flex items-center">
                       {city}
                       <button 
                         onClick={() => setSelectedCities(prev => prev.filter(c => c !== city))}
-                        className="ml-1 text-green-600 hover:text-green-800"
+                        className="ml-1 text-green-600 hover:text-green-800 text-sm"
                       >
                         ×
                       </button>
@@ -645,7 +647,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 id="departure-city-select" 
                 value="" 
                 onChange={handleDepartureCitySelect} 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="departure-city-select-desc"
               >
                 <option value="">Select departure cities...</option>
@@ -654,13 +656,13 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 ))}
               </select>
               {itineraryQueries.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-1 flex flex-wrap gap-1">
                   {itineraryQueries.map(query => (
-                    <span key={query} className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs flex items-center">
+                    <span key={query} className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs flex items-center">
                       {query}
                       <button 
                         onClick={() => setItineraryQueries(prev => prev.filter(q => q !== query))}
-                        className="ml-1 text-purple-600 hover:text-purple-800"
+                        className="ml-1 text-purple-600 hover:text-purple-800 text-sm"
                       >
                         ×
                       </button>
@@ -681,7 +683,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 id="room-type-select" 
                 value="" 
                 onChange={handleRoomTypeSelect} 
-                className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 aria-describedby="room-type-select-desc"
               >
                 <option value="">Select room types...</option>
@@ -691,13 +693,13 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
                 <option value="Suite">Suite</option>
               </select>
               {roomTypeFilters.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-1 flex flex-wrap gap-1">
                   {roomTypeFilters.map(roomType => (
-                    <span key={roomType} className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs flex items-center">
+                    <span key={roomType} className="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-xs flex items-center">
                       {roomType}
                       <button 
                         onClick={() => setRoomTypeFilters(prev => prev.filter(r => r !== roomType))}
-                        className="ml-1 text-orange-600 hover:text-orange-800"
+                        className="ml-1 text-orange-600 hover:text-orange-800 text-sm"
                       >
                         ×
                       </button>
@@ -711,17 +713,10 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             </div>
 
           </div>
-          <div className="mt-4 flex justify-between">
-            <button 
-              onClick={handleDeleteAfterSeptember4} 
-              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
-              aria-label="Delete all cruises after September 4, 2024"
-            >
-              Delete After Sep 4
-            </button>
+          <div className="mt-3 flex justify-end">
             <button 
               onClick={handleResetFilters} 
-              className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
+              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md text-sm"
               aria-label="Clear all filters"
             >
               Reset All Filters
@@ -734,7 +729,14 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             <h2 id="comparison-heading" className="text-3xl font-bold text-center mb-6 text-blue-800">
               Comparison ({cruisesToCompare.length} cruises)
             </h2>
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${cruisesToCompare.length > 2 ? 'lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6' : 'lg:grid-cols-2'} gap-4`}>
+            <div className={`grid gap-4 ${
+              cruisesToCompare.length === 1 ? 'grid-cols-1 max-w-md mx-auto' :
+              cruisesToCompare.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
+              cruisesToCompare.length === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' :
+              cruisesToCompare.length === 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' :
+              cruisesToCompare.length === 5 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' :
+              'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'
+            }`}>
               {cruisesToCompare.map(cruise => (
                 <ComparisonCard 
                   key={cruise['Unique Sailing ID']} 
