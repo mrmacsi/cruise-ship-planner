@@ -13,6 +13,7 @@ export default function CruiseShipPlanner() {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [editingCruise, setEditingCruise] = useState<CruiseData | null>(null);
   const [allNotesOpen, setAllNotesOpen] = useState(true);
+  const [bulkSaveCallback, setBulkSaveCallback] = useState<((data: CruiseData[]) => Promise<void>) | null>(null);
 
   return (
     <ErrorBoundary>
@@ -48,6 +49,7 @@ export default function CruiseShipPlanner() {
           <CruiseComparisonPage 
             allNotesOpen={allNotesOpen}
             onEditCruise={(cruise) => { setEditingCruise(cruise); setShowForm(true); }}
+            onBulkSaveReady={(saveCallback) => setBulkSaveCallback(() => saveCallback)}
           />
         </main>
 
@@ -67,7 +69,9 @@ export default function CruiseShipPlanner() {
         {showBulkImport && (
           <BulkImportForm
             onSave={async (cruises) => {
-              // This will be handled by the CruiseComparisonPage
+              if (bulkSaveCallback) {
+                await bulkSaveCallback(cruises);
+              }
               setShowBulkImport(false);
             }}
             onClose={() => setShowBulkImport(false)}

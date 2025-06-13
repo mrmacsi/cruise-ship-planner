@@ -13,11 +13,13 @@ import { ComparisonCard } from '@/components/cruise/ComparisonCard';
 interface CruiseComparisonPageProps {
   allNotesOpen?: boolean;
   onEditCruise?: (cruise: CruiseData) => void;
+  onBulkSaveReady?: (saveCallback: (data: CruiseData[]) => Promise<void>) => void;
 }
 
 export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({ 
   allNotesOpen = true,
-  onEditCruise 
+  onEditCruise,
+  onBulkSaveReady
 }) => {
   const [allCruises, setAllCruises] = useState<CruiseData[]>([]);
   const [comparisonList, setComparisonList] = useState<string[]>([]);
@@ -60,6 +62,17 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
   // Silent background save for notes without any UI disruption
   useEffect(() => {
     if (Object.keys(debouncedNotes).length > 0 && !savingNotesRef.current) {
+      // Check if there are actual changes before saving
+      const hasActualChanges = allCruises.some(cruise => {
+        const newNote = debouncedNotes[cruise['Unique Sailing ID']];
+        const currentNote = cruise['User Notes'] || '';
+        return newNote !== undefined && newNote !== currentNote;
+      });
+
+      if (!hasActualChanges) {
+        return; // No actual changes, don't save
+      }
+
       const saveNotes = async () => {
         savingNotesRef.current = true;
         try {
@@ -67,7 +80,9 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
           const currentCruises = allCruises;
           const updatedCruises = currentCruises.map(cruise => ({
             ...cruise,
-            'User Notes': debouncedNotes[cruise['Unique Sailing ID']] || cruise['User Notes'] || ''
+            'User Notes': debouncedNotes[cruise['Unique Sailing ID']] !== undefined 
+              ? debouncedNotes[cruise['Unique Sailing ID']] 
+              : cruise['User Notes'] || ''
           }));
           
           // Silent save - no loading states or UI changes
@@ -81,21 +96,8 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             }),
           });
 
-          // Update local state silently only if notes actually changed
-          setAllCruises(prev => {
-            const hasChanges = prev.some(cruise => {
-              const newNote = debouncedNotes[cruise['Unique Sailing ID']];
-              return newNote !== undefined && newNote !== cruise['User Notes'];
-            });
-            
-            if (hasChanges) {
-              return prev.map(cruise => ({
-                ...cruise,
-                'User Notes': debouncedNotes[cruise['Unique Sailing ID']] || cruise['User Notes'] || ''
-              }));
-            }
-            return prev;
-          });
+          // Update local state silently
+          setAllCruises(updatedCruises);
         } catch (error) {
           console.error('Failed to save notes:', error);
         } finally {
@@ -149,8 +151,10 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
       if (!isNaN(filterDate.getTime())) {
         filterDate.setUTCHours(0, 0, 0, 0);
         result = result.filter(c => {
-          if (!c.departureDateObj) return false;
-          const cruiseDate = new Date(c.departureDateObj);
+          // Parse the departure date from the "Departure Date" field (e.g., "29 Aug '25 - 05 Sep '25")
+          const cruiseDepartureDate = parseDepartureDate(c['Departure Date']);
+          if (!cruiseDepartureDate) return false;
+          const cruiseDate = new Date(cruiseDepartureDate);
           cruiseDate.setUTCHours(0, 0, 0, 0);
           return cruiseDate.getTime() >= filterDate.getTime();
         });
@@ -162,6 +166,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
       if (!isNaN(filterDate.getTime())) {
         filterDate.setUTCHours(23, 59, 59, 999);
         result = result.filter(c => {
+          // Parse the arrival date from the "Departure Date" field and duration
           const arrivalDateObj = parseArrivalDate(c['Departure Date'], c['Duration']);
           if (!arrivalDateObj) return false;
           const cruiseArrivalDate = new Date(arrivalDateObj);
@@ -358,6 +363,32 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
     }
   }, [onEditCruise]);
 
+  const handleBulkSave = useCallback(async (data: CruiseData[]) => {
+    try {
+      await apiCall(API_BASE_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          key: API_KEY, 
+          data: data, 
+          ttl: null 
+        }),
+      });
+
+      setAllCruises(data);
+    } catch (error) {
+      console.error('Bulk save failed:', error);
+      throw error;
+    }
+  }, [apiCall]);
+
+  // Expose bulk save callback to parent
+  useEffect(() => {
+    if (onBulkSaveReady) {
+      onBulkSaveReady(handleBulkSave);
+    }
+  }, [onBulkSaveReady, handleBulkSave]);
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto p-4 md:p-8">
@@ -515,7 +546,21 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             </div>
 
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end space-x-4">
+            <button 
+              onClick={() => {
+                if (window.confirm('This will clear all cached data and reload fresh data from the server. Continue?')) {
+                  // Clear localStorage cache if any
+                  localStorage.clear();
+                  // Reload the page to get fresh data
+                  window.location.reload();
+                }
+              }} 
+              className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition duration-300 font-semibold shadow-md"
+              aria-label="Reset cache and reload data"
+            >
+              Reset Cache
+            </button>
             <button 
               onClick={handleResetFilters} 
               className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300 font-semibold shadow-md"
@@ -531,7 +576,7 @@ export const CruiseComparisonPage: React.FC<CruiseComparisonPageProps> = ({
             <h2 id="comparison-heading" className="text-3xl font-bold text-center mb-6 text-blue-800">
               Comparison ({cruisesToCompare.length} cruises)
             </h2>
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${cruisesToCompare.length > 2 ? 'lg:grid-cols-3 xl:grid-cols-4' : 'lg:grid-cols-2'} gap-4`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${cruisesToCompare.length > 2 ? 'lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6' : 'lg:grid-cols-2'} gap-4`}>
               {cruisesToCompare.map(cruise => (
                 <ComparisonCard 
                   key={cruise['Unique Sailing ID']} 
